@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ARENA HUB - Manajemen Turnamen Futsal & Minisoccer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { sans: ['"Plus Jakarta Sans"', 'sans-serif'] },
+          colors: {
+            pitch: {
+              950: '#070b14',
+              900: '#0d1424',
+              800: '#152038',
+              700: '#1e2e4f',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background-color: #070b14; color: #f8fafc; }
+    .glass-card {
+      background: rgba(13, 20, 36, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #070b14; }
+    ::-webkit-scrollbar-thumb { background: #1e2e4f; border-radius: 9999px; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased selection:bg-emerald-500 selection:text-white">
+
+  <!-- NAVBAR -->
+  <header class="sticky top-0 z-40 glass-card border-b border-slate-800/80">
+    <div class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+      <!-- Klik Logo untuk Masuk Admin -->
+      <button id="logoAdminTrigger" type="button" title="ARENA HUB" class="flex items-center gap-3 text-left group focus:outline-none">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20 group-hover:scale-105 transition-transform">
+          <svg class="w-6 h-6 text-slate-950" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 7l3 2.2-1.1 3.6H10.1L9 9.2 12 7z" />
+          </svg>
+        </div>
+        <div>
+          <span class="font-extrabold tracking-tight text-lg text-white">ARENA <span class="text-emerald-400">HUB</span></span>
+          <p id="headerSportBadge" class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Futsal • Live Tournament</p>
+        </div>
+      </button>
+
+      <div class="flex items-center gap-3">
+        <!-- Status Koneksi Real-Time -->
+        <div id="syncBadge" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 text-xs font-medium text-slate-300">
+          <span id="syncDot" class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+          <span id="syncText">Menghubungkan...</span>
+        </div>
+
+        <!-- Tombol Keluar Admin (Hanya muncul saat Admin Login) -->
+        <button id="btnLogoutAdmin" class="hidden px-3.5 py-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 border border-rose-500/30 text-xs font-semibold transition">
+          Keluar Admin
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- HERO INFO TURNAMEN -->
+  <section class="border-b border-slate-800/70 bg-gradient-to-b from-pitch-900 to-pitch-950">
+    <div class="max-w-6xl mx-auto px-4 py-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div>
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold mb-3">
+          <span id="badgeFormat">Sistem Liga</span>
+          <span>•</span>
+          <span id="badgePointsRule">Menang 3 | Seri 1 | Kalah 0</span>
+        </div>
+        <h1 id="displayTournamentName" class="text-2xl md:text-4xl font-extrabold text-white tracking-tight">ARENA HUB Championship 2026</h1>
+        <p id="displayTournamentMeta" class="text-slate-400 text-sm mt-1.5">GOR Utama Arena • Cabang Futsal</p>
+      </div>
+      <div class="grid grid-cols-3 gap-3 text-center">
+        <div class="glass-card rounded-xl px-4 py-3">
+          <p id="statTotalTeams" class="text-xl font-extrabold text-white">0</p>
+          <p class="text-[11px] uppercase tracking-wider text-slate-400">Tim</p>
+        </div>
+        <div class="glass-card rounded-xl px-4 py-3">
+          <p id="statTotalMatches" class="text-xl font-extrabold text-emerald-400">0</p>
+          <p class="text-[11px] uppercase tracking-wider text-slate-400">Laga</p>
+        </div>
+        <div class="glass-card rounded-xl px-4 py-3">
+          <p id="statTotalGoals" class="text-xl font-extrabold text-amber-400">0</p>
+          <p class="text-[11px] uppercase tracking-wider text-slate-400">Gol</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MAIN CONTENT -->
+  <main class="flex-1 max-w-6xl w-full mx-auto px-4 py-8 space-y-8">
+
+    <!-- PANEL ADMIN (TERSEMBUNYI UNTUK PENONTON) -->
+    <section id="adminPanel" class="hidden space-y-6">
+      <div class="flex items-center justify-between bg-emerald-500/10 border border-emerald-500/30 rounded-2xl px-5 py-4">
+        <div>
+          <h2 class="text-base font-bold text-emerald-400">Panel Kontrol Panitia / Admin</h2>
+          <p id="adminUserEmail" class="text-xs text-slate-300">Terautentikasi</p>
+        </div>
+        <span class="text-xs px-2.5 py-1 rounded-md bg-emerald-500/20 text-emerald-300 font-semibold">Production Mode Aktif</span>
+      </div>
+
+      <!-- Sub-navigasi Admin -->
+      <div class="flex flex-wrap gap-2 border-b border-slate-800 pb-3">
+        <button data-admin-tab="config" class="admin-tab-btn px-4 py-2 rounded-lg text-sm font-semibold bg-emerald-500 text-slate-950">1. Konfigurasi Turnamen</button>
+        <button data-admin-tab="teams" class="admin-tab-btn px-4 py-2 rounded-lg text-sm font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">2. Kelola Tim & Logo</button>
+        <button data-admin-tab="matches" class="admin-tab-btn px-4 py-2 rounded-lg text-sm font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">3. Jadwal & Input Skor</button>
+      </div>
+
+      <!-- TAB 1: KONFIGURASI -->
+      <div id="adminTab-config" class="admin-tab-content glass-card rounded-2xl p-6">
+        <form id="formConfig" class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1.5">Nama Turnamen</label>
+            <input type="text" id="cfgName" required class="w-full rounded-xl bg-slate-900 border border-slate-700 px-3.5 py-2.5 text-sm text-white focus:border-emerald-500 focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1.5">Cabang Olahraga</label>
+            <select id="cfgSport" class="w-full rounded-xl bg-slate-900 border border-slate-700 px-3.5 py-2.5 text-sm text-white focus:border-emerald-500 focus:outline-none">
+              <option value="Futsal">Futsal</option>
+              <option value="Minisoccer">Minisoccer</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1.5">Lokasi / Venue</label>
+            <input type="text" id="cfgVenue" placeholder="Contoh: Arena Futsal Jakarta" class="w-full rounded-xl bg-slate-900 border border-slate-700 px-3.5 py-2.5 text-sm text-white focus:border-emerald-500 focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1.5">Format Kompetisi</label>
+            <select id="cfgFormat" class="w-full rounded-xl bg-slate-900 border border-slate-700 px-3.5 py-2.5 text-sm text-white focus:border-emerald-500 focus:outline-none">
+              <option value="league">Sistem Liga (Klasemen Poin)</option>
+              <option value="cup">Sistem Gugur / Cup (Knockout)</option>
+            </select>
+          </div>
+          <div class="md:col-span-2 grid grid-cols-3 gap-4 pt-2 border-t border-slate-800">
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1.5">Poin Menang</label>
+              <input type="number" id="cfgWinPts" value="3" class="w-full rounded-xl bg-slate-900 border border-slate-700 px-3.5 py-2 text-sm text-white" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1.5">Poin Seri</label>
+              <input type="number" id="cfgDrawPts" value="1" class="w-full rounded-xl bg-slate-900 border border-slate-700 px-3.5 py-2 text-sm text-white" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1.5">Poin Kalah</label>
+              <input type="number" id="cfgLossPts" value="0" class="w-full rounded-xl bg-slate-900 border border-slate-700 px-3.5 py-2 text-sm text-white" />
+            </div>
+          </div>
+          <div class="md:col-span-2 flex justify-end">
+            <button type="submit" class="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm transition">
+              Simpan Konfigurasi
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- TAB 2: KELOLA TIM -->
+      <div id="adminTab-teams" class="admin-tab-content hidden space-y-6">
+        <div class="glass-card rounded-2xl p-6">
+          <h3 class="text-base font-bold text-white mb-4">Tambah / Edit Tim</h3>
+          <form id="formTeam" class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+            <input type="hidden" id="teamEditId" />
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1.5">Nama Tim</label>
+              <input type="text" id="teamName" required placeholder="Contoh: Garuda FC" class="w-full rounded-xl bg-slate-900 border border-slate-700 px-3.5 py-2.5 text-sm text-white focus:border-emerald-500 focus:outline-none" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1.5">Logo Tim (Upload File / URL)</label>
+              <div class="flex gap-2">
+                <input type="file" id="teamLogoFile" accept="image/*" class="w-full text-xs text-slate-400 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-slate-800 file:text-emerald-400 hover:file:bg-slate-700" />
+              </div>
+            </div>
+            <div class="flex gap-2">
+              <button type="submit" class="flex-1 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm transition">
+                Simpan Tim
+              </button>
+              <button type="button" id="btnCancelTeamEdit" class="hidden px-3 py-2.5 rounded-xl bg-slate-800 text-slate-300 text-sm">
+                Batal
+              </button>
+            </div>
+            <div class="md:col-span-3">
+              <input type="url" id="teamLogoUrl" placeholder="Atau tempel URL gambar logo tim (opsional)" class="w-full rounded-xl bg-slate-900 border border-slate-700 px-3.5 py-2 text-xs text-slate-300 focus:border-emerald-500 focus:outline-none" />
+            </div>
+          </form>
+        </div>
+
+        <div id="adminTeamList" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4"></div>
+      </div>
+
+      <!-- TAB 3: JADWAL & INPUT SKOR -->
+      <div id="adminTab-matches" class="admin-tab-content hidden space-y-6">
+        <div class="glass-card rounded-2xl p-6 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <h3 class="text-base font-bold text-white">Tambah Pertandingan</h3>
+            <button type="button" id="btnGenerateSchedule" class="px-4 py-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-xs font-bold transition">
+              Generate Jadwal Otomatis
+            </button>
+          </div>
+
+          <form id="formMatch" class="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Tim Home</label>
+              <select id="matchHome" required class="w-full rounded-xl bg-slate-900 border border-slate-700 px-3 py-2.5 text-sm text-white"></select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Tim Away</label>
+              <select id="matchAway" required class="w-full rounded-xl bg-slate-900 border border-slate-700 px-3 py-2.5 text-sm text-white"></select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Babak / Pekan</label>
+              <input type="text" id="matchRound" value="Pekan 1" placeholder="Pekan 1 / Semifinal" class="w-full rounded-xl bg-slate-900 border border-slate-700 px-3 py-2.5 text-sm text-white" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Waktu / Tanggal</label>
+              <input type="text" id="matchTime" placeholder="Sabtu, 19:00 WIB" class="w-full rounded-xl bg-slate-900 border border-slate-700 px-3 py-2.5 text-sm text-white" />
+            </div>
+            <button type="submit" class="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm transition">
+              + Jadwal
+            </button>
+          </form>
+        </div>
+
+        <div id="adminMatchList" class="space-y-3"></div>
+      </div>
+    </section>
+
+    <!-- NAVIGASI TAMPILAN PENONTON -->
+    <div class="flex flex-wrap gap-2 border-b border-slate-800 pb-3">
+      <button data-public-tab="standings" class="public-tab-btn px-4 py-2 rounded-lg text-sm font-semibold bg-emerald-500 text-slate-950">Klasemen & Bagan</button>
+      <button data-public-tab="schedule" class="public-tab-btn px-4 py-2 rounded-lg text-sm font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">Jadwal & Hasil</button>
+      <button data-public-tab="teams" class="public-tab-btn px-4 py-2 rounded-lg text-sm font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">Tim Peserta</button>
+    </div>
+
+    <!-- VIEW 1: KLASEMEN / BAGAN -->
+    <section id="publicTab-standings" class="public-tab-content space-y-6">
+      <div id="leagueStandingsWrapper" class="glass-card rounded-2xl overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+          <h2 class="font-bold text-white">Klasemen Sementara</h2>
+          <span class="text-xs text-slate-400">Urutan: Poin → Selisih Gol → Gol Masuk</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm text-left">
+            <thead class="bg-slate-900/80 text-xs uppercase text-slate-400 border-b border-slate-800">
+              <tr>
+                <th class="py-3.5 px-4 w-12 text-center">#</th>
+                <th class="py-3.5 px-4">Tim</th>
+                <th class="py-3.5 px-3 text-center">Main</th>
+                <th class="py-3.5 px-3 text-center">M</th>
+                <th class="py-3.5 px-3 text-center">S</th>
+                <th class="py-3.5 px-3 text-center">K</th>
+                <th class="py-3.5 px-3 text-center">GM</th>
+                <th class="py-3.5 px-3 text-center">GK</th>
+                <th class="py-3.5 px-3 text-center">SG</th>
+                <th class="py-3.5 px-4 text-center text-emerald-400">POIN</th>
+              </tr>
+            </thead>
+            <tbody id="standingsTableBody" class="divide-y divide-slate-800/70"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="cupBracketWrapper" class="hidden space-y-4">
+        <h2 class="font-bold text-white text-lg">Bagan Pertandingan (Sistem Gugur)</h2>
+        <div id="cupBracketContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+      </div>
+    </section>
+
+    <!-- VIEW 2: JADWAL & HASIL -->
+    <section id="publicTab-schedule" class="public-tab-content hidden space-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h2 class="font-bold text-white text-lg">Jadwal & Hasil Pertandingan</h2>
+        <select id="filterMatchStatus" class="rounded-xl bg-slate-900 border border-slate-700 px-3.5 py-2 text-xs text-white">
+          <option value="all">Semua Pertandingan</option>
+          <option value="upcoming">Akan Datang</option>
+          <option value="finished">Selesai</option>
+        </select>
+      </div>
+      <div id="publicMatchList" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+    </section>
+
+    <!-- VIEW 3: TIM PESERTA -->
+    <section id="publicTab-teams" class="public-tab-content hidden space-y-4">
+      <h2 class="font-bold text-white text-lg">Daftar Tim Peserta</h2>
+      <div id="publicTeamGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4"></div>
+    </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-slate-800/80 py-6 text-center text-xs text-slate-500">
+    &copy; 2026 ARENA HUB • Platform Manajemen Turnamen Futsal & Minisoccer
+  </footer>
+
+  <!-- MODAL LOGIN ADMIN -->
+  <div id="adminLoginModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-card rounded-2xl max-w-sm w-full p-6 space-y-4 border border-slate-700">
+      <div class="flex items-center justify-between">
+        <h3 class="text-lg font-bold text-white">Login Admin ARENA HUB</h3>
+        <button id="closeLoginModal" class="text-slate-400 hover:text-white text-xl">&times;</button>
+      </div>
+      <p class="text-xs text-slate-400">Masukkan akun Admin yang terdaftar di Firebase Authentication.</p>
+      <form id="formAdminLogin" class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Email Admin</label>
+          <input type="email" id="loginEmail" required placeholder="admin@arenahub.com" class="w-full rounded-xl bg-slate-900 border border-slate-700 px-3.5 py-2.5 text-sm text-white focus:border-emerald-500 focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Password</label>
+          <input type="password" id="loginPassword" required placeholder="••••••••" class="w-full rounded-xl bg-slate-900 border border-slate-700 px-3.5 py-2.5 text-sm text-white focus:border-emerald-500 focus:outline-none" />
+        </div>
+        <p id="loginErrorMsg" class="hidden text-xs text-rose-400"></p>
+        <button type="submit" class="w-full py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm transition">
+          Masuk Mode Admin
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- FIREBASE SDK & APP LOGIC -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
+    import {
+      getAuth,
+      signInWithEmailAndPassword,
+      signOut,
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
+    import {
+      getFirestore,
+      doc,
+      setDoc,
+      addDoc,
+      updateDoc,
+      deleteDoc,
+      collection,
+      onSnapshot,
+      serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+
+    // =====================================================================
+    // TEMPELKAN firebaseConfig MILIKMU DI SINI
+    // =====================================================================
+    const firebaseConfig = {
+  apiKey: "AIzaSyAcDIqUPaNEgdkP45zGslSvY4JS6M2yick",
+  authDomain: "arena-hub-f2070.firebaseapp.com",
+  projectId: "arena-hub-f2070",
+  storageBucket: "arena-hub-f2070.firebasestorage.app",
+  messagingSenderId: "635022892497",
+  appId: "1:635022892497:web:9a765f810a87bee66c94f0"
+};
+    // =====================================================================
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    // Koleksi & Dokumen Firestore
+    const configDocRef = doc(db, "arenahub", "config");
+    const teamsColRef = collection(db, "arenahub", "data", "teams");
+    const matchesColRef = collection(db, "arenahub", "data", "matches");
+
+    // State Lokal
+    let state = {
+      config: {
+        name: "ARENA HUB Championship 2026",
+        sport: "Futsal",
+        venue: "GOR Utama Arena",
+        format: "league",
+        winPts: 3,
+        drawPts: 1,
+        lossPts: 0
+      },
+      teams: [],
+      matches: [],
+      isAdmin: false
+    };
+
+    // Helper Logo Default SVG Data URI
+    const defaultLogo = (name) => {
+      const initial = (name || "T").substring(0, 2).toUpperCase();
+      return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80"><rect width="80" height="80" rx="18" fill="%2310b981"/><text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" fill="%23070b14" font-family="sans-serif" font-weight="800" font-size="28">${initial}</text></svg>`;
+    };
+
+    // Kompres Gambar Logo ke Base64 Kecil (< 60KB)
+    function compressImageToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement("canvas");
+            const maxSize = 140;
+            let w = img.width, h = img.height;
+            if (w > h) { if (w > maxSize) { h *= maxSize / w; w = maxSize; } }
+            else { if (h > maxSize) { w *= maxSize / h; h = maxSize; } }
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0, w, h);
+            resolve(canvas.toDataURL("image/webp", 0.8));
+          };
+          img.onerror = reject;
+          img.src = e.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // Update Status Sync UI
+    function setSyncStatus(online, text) {
+      const dot = document.getElementById("syncDot");
+      const label = document.getElementById("syncText");
+      dot.className = online
+        ? "w-2 h-2 rounded-full bg-emerald-400"
+        : "w-2 h-2 rounded-full bg-rose-500";
+      label.textContent = text;
+    }
+
+    // Listener Real-time Firestore
+    onSnapshot(configDocRef, (snap) => {
+      if (snap.exists()) {
+        state.config = { ...state.config, ...snap.data() };
+      }
+      setSyncStatus(true, "Live Sync");
+      renderAll();
+    }, (err) => {
+      console.error(err);
+      setSyncStatus(false, "Cek firebaseConfig");
+    });
+
+    onSnapshot(teamsColRef, (snap) => {
+      state.teams = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderAll();
+    });
+
+    onSnapshot(matchesColRef, (snap) => {
+      state.matches = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderAll();
+    });
+
+    // Listener Status Auth Admin
+    onAuthStateChanged(auth, (user) => {
+      state.isAdmin = !!user;
+      document.getElementById("adminPanel").classList.toggle("hidden", !state.isAdmin);
+      document.getElementById("btnLogoutAdmin").classList.toggle("hidden", !state.isAdmin);
+      if (user) {
+        document.getElementById("adminUserEmail").textContent = `Login sebagai: ${user.email}`;
+        document.getElementById("adminLoginModal").classList.add("hidden");
+      }
+      renderAll();
+    });
+
+    // Trigger Login Admin via Klik Logo ARENA HUB
+    document.getElementById("logoAdminTrigger").addEventListener("click", () => {
+      if (state.isAdmin) {
+        document.getElementById("adminPanel").scrollIntoView({ behavior: "smooth" });
+      } else {
+        document.getElementById("loginErrorMsg").classList.add("hidden");
+        document.getElementById("adminLoginModal").classList.remove("hidden");
+      }
+    });
+
+    document.getElementById("closeLoginModal").addEventListener("click", () => {
+      document.getElementById("adminLoginModal").classList.add("hidden");
+    });
+
+    document.getElementById("formAdminLogin").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = document.getElementById("loginEmail").value.trim();
+      const pass = document.getElementById("loginPassword").value;
+      const errEl = document.getElementById("loginErrorMsg");
+      try {
+        await signInWithEmailAndPassword(auth, email, pass);
+        e.target.reset();
+      } catch (err) {
+        errEl.textContent = "Login gagal: Periksa email/password admin di Firebase Auth.";
+        errEl.classList.remove("hidden");
+      }
+    });
+
+    document.getElementById("btnLogoutAdmin").addEventListener("click", async () => {
+      await signOut(auth);
+    });
+
+    // Simpan Konfigurasi Turnamen
+    document.getElementById("formConfig").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const payload = {
+        name: document.getElementById("cfgName").value.trim(),
+        sport: document.getElementById("cfgSport").value,
+        venue: document.getElementById("cfgVenue").value.trim(),
+        format: document.getElementById("cfgFormat").value,
+        winPts: Number(document.getElementById("cfgWinPts").value),
+        drawPts: Number(document.getElementById("cfgDrawPts").value),
+        lossPts: Number(document.getElementById("cfgLossPts").value),
+        updatedAt: serverTimestamp()
+      };
+      await setDoc(configDocRef, payload, { merge: true });
+      alert("Konfigurasi turnamen berhasil disimpan ke cloud!");
+    });
+
+    // Simpan Tim
+    document.getElementById("formTeam").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const editId = document.getElementById("teamEditId").value;
+      const name = document.getElementById("teamName").value.trim();
+      const fileInput = document.getElementById("teamLogoFile");
+      const urlInput = document.getElementById("teamLogoUrl").value.trim();
+
+      let logo = urlInput || "";
+      if (fileInput.files && fileInput.files[0]) {
+        logo = await compressImageToBase64(fileInput.files[0]);
+      }
+
+      if (editId) {
+        const existing = state.teams.find(t => t.id === editId);
+        await updateDoc(doc(db, "arenahub", "data", "teams", editId), {
+          name,
+          logo: logo || (existing ? existing.logo : "")
+        });
+      } else {
+        await addDoc(teamsColRef, {
+          name,
+          logo,
+          createdAt: serverTimestamp()
+        });
+      }
+
+      e.target.reset();
+      document.getElementById("teamEditId").value = "";
+      document.getElementById("btnCancelTeamEdit").classList.add("hidden");
+    });
+
+    document.getElementById("btnCancelTeamEdit").addEventListener("click", () => {
+      document.getElementById("formTeam").reset();
+      document.getElementById("teamEditId").value = "";
+      document.getElementById("btnCancelTeamEdit").classList.add("hidden");
+    });
+
+    // Tambah Pertandingan Manual
+    document.getElementById("formMatch").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const homeId = document.getElementById("matchHome").value;
+      const awayId = document.getElementById("matchAway").value;
+      if (!homeId || !awayId || homeId === awayId) {
+        alert("Pilih dua tim yang berbeda.");
+        return;
+      }
+      await addDoc(matchesColRef, {
+        homeId,
+        awayId,
+        round: document.getElementById("matchRound").value.trim() || "Match",
+        time: document.getElementById("matchTime").value.trim() || "Segera",
+        homeScore: null,
+        awayScore: null,
+        status: "upcoming",
+        createdAt: serverTimestamp()
+      });
+      e.target.reset();
+    });
+
+    // Generate Jadwal Otomatis
+    document.getElementById("btnGenerateSchedule").addEventListener("click", async () => {
+      if (state.teams.length < 2) {
+        alert("Minimal butuh 2 tim untuk membuat jadwal otomatis.");
+        return;
+      }
+      if (!confirm("Generate jadwal baru dari daftar tim yang ada?")) return;
+
+      const teams = [...state.teams];
+      if (state.config.format === "league") {
+        // Round Robin
+        for (let i = 0; i < teams.length; i++) {
+          for (let j = i + 1; j < teams.length; j++) {
+            await addDoc(matchesColRef, {
+              homeId: teams[i].id,
+              awayId: teams[j].id,
+              round: "Liga",
+              time: "Jadwal Menyusul",
+              homeScore: null,
+              awayScore: null,
+              status: "upcoming",
+              createdAt: serverTimestamp()
+            });
+          }
+        }
+      } else {
+        // Sistem Gugur Acak
+        teams.sort(() => Math.random() - 0.5);
+        for (let i = 0; i < teams.length - 1; i += 2) {
+          await addDoc(matchesColRef, {
+            homeId: teams[i].id,
+            awayId: teams[i + 1].id,
+            round: "Babak Gugur",
+            time: "Jadwal Menyusul",
+            homeScore: null,
+            awayScore: null,
+            status: "upcoming",
+            createdAt: serverTimestamp()
+          });
+        }
+      }
+    });
+
+    // Hitung Klasemen Otomatis
+    function computeStandings() {
+      const { winPts, drawPts, lossPts } = state.config;
+      const map = {};
+      state.teams.forEach(t => {
+        map[t.id] = {
+          id: t.id,
+          name: t.name,
+          logo: t.logo || defaultLogo(t.name),
+          played: 0, win: 0, draw: 0, loss: 0,
+          gf: 0, ga: 0, gd: 0, pts: 0
+        };
+      });
+
+      state.matches.forEach(m => {
+        if (m.status !== "finished" || m.homeScore === null || m.awayScore === null) return;
+        const h = map[m.homeId];
+        const a = map[m.awayId];
+        if (!h || !a) return;
+
+        const hs = Number(m.homeScore);
+        const as = Number(m.awayScore);
+        h.played++; a.played++;
+        h.gf += hs; h.ga += as;
+        a.gf += as; a.ga += hs;
+
+        if (hs > as) {
+          h.win++; h.pts += Number(winPts);
+          a.loss++; a.pts += Number(lossPts);
+        } else if (hs < as) {
+          a.win++; a.pts += Number(winPts);
+          h.loss++; h.pts += Number(lossPts);
+        } else {
+          h.draw++; h.pts += Number(drawPts);
+          a.draw++; a.pts += Number(drawPts);
+        }
+      });
+
+      return Object.values(map).map(t => ({
+        ...t,
+        gd: t.gf - t.ga
+      })).sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf || a.name.localeCompare(b.name));
+    }
+
+    // Render Semua Komponen
+    function renderAll() {
+      const cfg = state.config;
+      document.getElementById("headerSportBadge").textContent = `${cfg.sport} • Live Tournament`;
+      document.getElementById("badgeFormat").textContent = cfg.format === "league" ? "Sistem Liga" : "Sistem Gugur (Cup)";
+      document.getElementById("badgePointsRule").textContent = `Menang ${cfg.winPts} | Seri ${cfg.drawPts} | Kalah ${cfg.lossPts}`;
+      document.getElementById("displayTournamentName").textContent = cfg.name;
+      document.getElementById("displayTournamentMeta").textContent = `${cfg.venue} • Cabang ${cfg.sport}`;
+
+      // Isi form konfigurasi admin
+      document.getElementById("cfgName").value = cfg.name;
+      document.getElementById("cfgSport").value = cfg.sport;
+      document.getElementById("cfgVenue").value = cfg.venue;
+      document.getElementById("cfgFormat").value = cfg.format;
+      document.getElementById("cfgWinPts").value = cfg.winPts;
+      document.getElementById("cfgDrawPts").value = cfg.drawPts;
+      document.getElementById("cfgLossPts").value = cfg.lossPts;
+
+      // Statistik Hero
+      const finishedMatches = state.matches.filter(m => m.status === "finished");
+      const totalGoals = finishedMatches.reduce((sum, m) => sum + Number(m.homeScore || 0) + Number(m.awayScore || 0), 0);
+      document.getElementById("statTotalTeams").textContent = state.teams.length;
+      document.getElementById("statTotalMatches").textContent = state.matches.length;
+      document.getElementById("statTotalGoals").textContent = totalGoals;
+
+      // Toggle Liga vs Cup
+      document.getElementById("leagueStandingsWrapper").classList.toggle("hidden", cfg.format !== "league");
+      document.getElementById("cupBracketWrapper").classList.toggle("hidden", cfg.format === "league");
+
+      // Render Klasemen
+      const standings = computeStandings();
+      const tbody = document.getElementById("standingsTableBody");
+      tbody.innerHTML = standings.length ? standings.map((t, idx) => `
+        <tr class="hover:bg-slate-800/40 transition">
+          <td class="py-3 px-4 text-center font-bold ${idx < 3 ? 'text-emerald-400' : 'text-slate-400'}">${idx + 1}</td>
+          <td class="py-3 px-4 flex items-center gap-3 font-semibold text-white">
+            <img src="${t.logo}" alt="${t.name}" class="w-7 h-7 rounded-lg object-cover bg-slate-800" />
+            <span>${t.name}</span>
+          </td>
+          <td class="py-3 px-3 text-center text-slate-300">${t.played}</td>
+          <td class="py-3 px-3 text-center text-emerald-400 font-semibold">${t.win}</td>
+          <td class="py-3 px-3 text-center text-slate-400">${t.draw}</td>
+          <td class="py-3 px-3 text-center text-rose-400">${t.loss}</td>
+          <td class="py-3 px-3 text-center text-slate-300">${t.gf}</td>
+          <td class="py-3 px-3 text-center text-slate-300">${t.ga}</td>
+          <td class="py-3 px-3 text-center font-medium ${t.gd >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${t.gd > 0 ? '+' + t.gd : t.gd}</td>
+          <td class="py-3 px-4 text-center font-extrabold text-white text-base">${t.pts}</td>
+        </tr>
+      `).join("") : `<tr><td colspan="10" class="py-8 text-center text-slate-500">Belum ada tim terdaftar.</td></tr>`;
+
+      // Render Bagan Cup
+      const teamMap = Object.fromEntries(state.teams.map(t => [t.id, t]));
+      const cupContainer = document.getElementById("cupBracketContainer");
+      cupContainer.innerHTML = state.matches.length ? state.matches.map(m => {
+        const h = teamMap[m.homeId] || { name: "TBD", logo: defaultLogo("?") };
+        const a = teamMap[m.awayId] || { name: "TBD", logo: defaultLogo("?") };
+        const done = m.status === "finished";
+        return `
+          <div class="glass-card rounded-2xl p-4 space-y-3">
+            <div class="flex justify-between text-[11px] font-semibold text-emerald-400 uppercase">
+              <span>${m.round}</span>
+              <span class="text-slate-400">${m.time}</span>
+            </div>
+            <div class="space-y-2">
+              <div class="flex items-center justify-between bg-slate-900/90 px-3 py-2 rounded-xl">
+                <div class="flex items-center gap-2.5">
+                  <img src="${h.logo || defaultLogo(h.name)}" class="w-6 h-6 rounded-md object-cover" />
+                  <span class="text-sm font-semibold text-white">${h.name}</span>
+                </div>
+                <span class="font-extrabold text-base ${done && m.homeScore > m.awayScore ? 'text-emerald-400' : 'text-white'}">${done ? m.homeScore : '-'}</span>
+              </div>
+              <div class="flex items-center justify-between bg-slate-900/90 px-3 py-2 rounded-xl">
+                <div class="flex items-center gap-2.5">
+                  <img src="${a.logo || defaultLogo(a.name)}" class="w-6 h-6 rounded-md object-cover" />
+                  <span class="text-sm font-semibold text-white">${a.name}</span>
+                </div>
+                <span class="font-extrabold text-base ${done && m.awayScore > m.homeScore ? 'text-emerald-400' : 'text-white'}">${done ? m.awayScore : '-'}</span>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join("") : `<p class="text-slate-500 text-sm">Belum ada bagan pertandingan.</p>`;
+
+      // Render Jadwal Publik
+      const filter = document.getElementById("filterMatchStatus").value;
+      const filteredMatches = state.matches.filter(m => filter === "all" ? true : m.status === filter);
+      document.getElementById("publicMatchList").innerHTML = filteredMatches.length ? filteredMatches.map(m => {
+        const h = teamMap[m.homeId] || { name: "TBD", logo: defaultLogo("?") };
+        const a = teamMap[m.awayId] || { name: "TBD", logo: defaultLogo("?") };
+        const done = m.status === "finished";
+        return `
+          <div class="glass-card rounded-2xl p-4 flex flex-col justify-between gap-3">
+            <div class="flex items-center justify-between text-xs text-slate-400">
+              <span class="font-semibold text-emerald-400">${m.round}</span>
+              <span>${m.time}</span>
+            </div>
+            <div class="flex items-center justify-between gap-2">
+              <div class="flex-1 flex items-center gap-2.5">
+                <img src="${h.logo || defaultLogo(h.name)}" class="w-8 h-8 rounded-lg object-cover" />
+                <span class="font-bold text-sm text-white">${h.name}</span>
+              </div>
+              <div class="px-3.5 py-1.5 rounded-xl bg-slate-900 border border-slate-800 font-extrabold text-base text-white">
+                ${done ? `${m.homeScore} : ${m.awayScore}` : 'VS'}
+              </div>
+              <div class="flex-1 flex items-center justify-end gap-2.5 text-right">
+                <span class="font-bold text-sm text-white">${a.name}</span>
+                <img src="${a.logo || defaultLogo(a.name)}" class="w-8 h-8 rounded-lg object-cover" />
+              </div>
+            </div>
+          </div>
+        `;
+      }).join("") : `<p class="text-slate-500 text-sm">Tidak ada pertandingan pada filter ini.</p>`;
+
+      // Render Grid Tim Publik
+      document.getElementById("publicTeamGrid").innerHTML = standings.length ? standings.map(t => `
+        <div class="glass-card rounded-2xl p-4 flex items-center gap-4">
+          <img src="${t.logo}" class="w-12 h-12 rounded-xl object-cover bg-slate-800" />
+          <div class="flex-1">
+            <h3 class="font-bold text-white">${t.name}</h3>
+            <p class="text-xs text-slate-400 mt-0.5">Main ${t.played} • Menang ${t.win} • ${t.pts} Poin</p>
+          </div>
+        </div>
+      `).join("") : `<p class="text-slate-500 text-sm">Belum ada tim terdaftar.</p>`;
+
+      // Render Admin Lists jika Admin Login
+      if (state.isAdmin) {
+        const teamOptions = state.teams.map(t => `<option value="${t.id}">${t.name}</option>`).join("");
+        document.getElementById("matchHome").innerHTML = `<option value="">Pilih Tim Home</option>` + teamOptions;
+        document.getElementById("matchAway").innerHTML = `<option value="">Pilih Tim Away</option>` + teamOptions;
+
+        document.getElementById("adminTeamList").innerHTML = state.teams.map(t => `
+          <div class="glass-card rounded-xl p-4 flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+              <img src="${t.logo || defaultLogo(t.name)}" class="w-10 h-10 rounded-lg object-cover" />
+              <span class="font-bold text-sm text-white">${t.name}</span>
+            </div>
+            <div class="flex gap-1.5">
+              <button onclick="window.editTeam('${t.id}')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-emerald-400 font-semibold">Edit</button>
+              <button onclick="window.deleteTeam('${t.id}')" class="px-2.5 py-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-xs text-rose-400 font-semibold">Hapus</button>
+            </div>
+          </div>
+        `).join("");
+
+        document.getElementById("adminMatchList").innerHTML = state.matches.map(m => {
+          const h = teamMap[m.homeId] || { name: "TBD" };
+          const a = teamMap[m.awayId] || { name: "TBD" };
+          return `
+            <div class="glass-card rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div class="text-xs text-slate-400">
+                <span class="text-emerald-400 font-semibold">${m.round}</span> • ${m.time}
+                <div class="text-sm font-bold text-white mt-1">${h.name} vs ${a.name}</div>
+              </div>
+              <div class="flex items-center gap-2">
+                <input type="number" min="0" id="hs-${m.id}" value="${m.homeScore ?? ''}" placeholder="0" class="w-14 text-center rounded-lg bg-slate-900 border border-slate-700 py-1.5 text-sm font-bold text-white" />
+                <span class="text-slate-500 font-bold">:</span>
+                <input type="number" min="0" id="as-${m.id}" value="${m.awayScore ?? ''}" placeholder="0" class="w-14 text-center rounded-lg bg-slate-900 border border-slate-700 py-1.5 text-sm font-bold text-white" />
+                <button onclick="window.saveScore('${m.id}')" class="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs">Simpan Skor</button>
+                <button onclick="window.deleteMatch('${m.id}')" class="px-2.5 py-1.5 rounded-lg bg-rose-500/15 text-rose-400 text-xs font-semibold">Hapus</button>
+              </div>
+            </div>
+          `;
+        }).join("");
+      }
+    }
+
+    // Global Handlers untuk Tombol Inline Admin
+    window.editTeam = (id) => {
+      const t = state.teams.find(x => x.id === id);
+      if (!t) return;
+      document.getElementById("teamEditId").value = t.id;
+      document.getElementById("teamName").value = t.name;
+      document.getElementById("teamLogoUrl").value = t.logo && t.logo.startsWith("http") ? t.logo : "";
+      document.getElementById("btnCancelTeamEdit").classList.remove("hidden");
+    };
+
+    window.deleteTeam = async (id) => {
+      if (confirm("Hapus tim ini?")) {
+        await deleteDoc(doc(db, "arenahub", "data", "teams", id));
+      }
+    };
+
+    window.saveScore = async (id) => {
+      const hs = document.getElementById(`hs-${id}`).value;
+      const as = document.getElementById(`as-${id}`).value;
+      if (hs === "" || as === "") {
+        alert("Isi kedua skor pertandingan terlebih dahulu.");
+        return;
+      }
+      await updateDoc(doc(db, "arenahub", "data", "matches", id), {
+        homeScore: Number(hs),
+        awayScore: Number(as),
+        status: "finished"
+      });
+    };
+
+    window.deleteMatch = async (id) => {
+      if (confirm("Hapus pertandingan ini?")) {
+        await deleteDoc(doc(db, "arenahub", "data", "matches", id));
+      }
+    };
+
+    // Navigasi Tab Publik & Admin
+    document.querySelectorAll(".public-tab-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".public-tab-btn").forEach(b => {
+          b.className = "public-tab-btn px-4 py-2 rounded-lg text-sm font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700";
+        });
+        btn.className = "public-tab-btn px-4 py-2 rounded-lg text-sm font-semibold bg-emerald-500 text-slate-950";
+        document.querySelectorAll(".public-tab-content").forEach(c => c.classList.add("hidden"));
+        document.getElementById(`publicTab-${btn.dataset.publicTab}`).classList.remove("hidden");
+      });
+    });
+
+    document.querySelectorAll(".admin-tab-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".admin-tab-btn").forEach(b => {
+          b.className = "admin-tab-btn px-4 py-2 rounded-lg text-sm font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700";
+        });
+        btn.className = "admin-tab-btn px-4 py-2 rounded-lg text-sm font-semibold bg-emerald-500 text-slate-950";
+        document.querySelectorAll(".admin-tab-content").forEach(c => c.classList.add("hidden"));
+        document.getElementById(`adminTab-${btn.dataset.adminTab}`).classList.remove("hidden");
+      });
+    });
+
+    document.getElementById("filterMatchStatus").addEventListener("change", renderAll);
+  </script>
+</body>
+</html>
