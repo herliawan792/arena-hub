@@ -48,6 +48,21 @@
       border: 2px solid #facc15;
       animation: winnerPulseGlow 2s ease-in-out infinite;
     }
+    /* Versi lebih tipis untuk logo kecil di tabel klasemen & daftar peserta */
+    @keyframes winnerPulseGlowSm {
+      0%, 100% {
+        box-shadow: 0 0 5px rgba(250, 204, 21, 0.75), 0 0 12px rgba(245, 158, 11, 0.45);
+        border-color: #facc15;
+      }
+      50% {
+        box-shadow: 0 0 11px rgba(253, 224, 71, 0.95), 0 0 20px rgba(245, 158, 11, 0.7);
+        border-color: #fef08a;
+      }
+    }
+    .winner-glow-sm {
+      border: 2px solid #facc15;
+      animation: winnerPulseGlowSm 2s ease-in-out infinite;
+    }
     @keyframes crownFloat {
       0%, 100% {
         transform: translateX(-50%) translateY(0px) rotate(-4deg) scale(1);
@@ -624,10 +639,10 @@
       `;
     }
 
-    function renderTeamLogoFrame({ src, alt, sizeClasses, crowned = false, glowing = false, crownSize = "crown-sm", extraImgClasses = "" }) {
+    function renderTeamLogoFrame({ src, alt, sizeClasses, crowned = false, glowing = false, crownSize = "crown-sm", extraImgClasses = "", frameGlow = "" }) {
       const glowClass = glowing ? "winner-glow" : "";
       return `
-        <div class="relative inline-flex items-center justify-center shrink-0">
+        <div class="relative inline-flex items-center justify-center shrink-0 ${frameGlow}">
           ${crowned ? crownSvgHtml(crownSize) : ""}
           <img src="${src}" alt="${alt}" class="${sizeClasses} object-cover ${glowClass} ${extraImgClasses}" />
         </div>
@@ -1481,6 +1496,7 @@
                 sizeClasses: "w-8 h-8 rounded-lg bg-slate-800",
                 crowned: isChampion,
                 glowing: false,
+                frameGlow: isChampion ? "winner-glow-sm rounded-lg" : "",
                 crownSize: "crown-sm"
               })}
               <span class="${isChampion ? 'text-amber-300 font-extrabold' : ''}">${t.name}</span>
@@ -1668,6 +1684,7 @@
               sizeClasses: "w-12 h-12 rounded-xl bg-slate-800",
               crowned: isCrowned,
               glowing: false,
+              frameGlow: isCrowned ? "winner-glow-sm rounded-xl" : "",
               crownSize: "crown-md"
             })}
             <div class="flex-1">
