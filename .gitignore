@@ -1,0 +1,7 @@
+# Salinan versi & berkas uji — tidak ikut dikirim ke GitHub
+index[0-9]*.html
+index.html.bak*
+_pratinjau/
+_*.html
+_*.mjs
+_*.py
