@@ -769,12 +769,44 @@
       });
     }
 
-    function getRoundLabel(totalRounds, roundIndex) {
+    function getRoundLabel(totalRounds, roundIndex, jumlahLaga) {
       const remaining = totalRounds - roundIndex;
+      // Babak pertama yang tidak penuh (karena tim ganjil) dinamai Babak Penyisihan.
+      // Babak-babak setelahnya tetap memakai nama bakunya (Semifinal, Final, dst).
+      const kapasitas = Math.pow(2, remaining - 1);
+      if (roundIndex === 0 && typeof jumlahLaga === "number" && jumlahLaga < kapasitas && remaining > 1) {
+        return "Babak Penyisihan";
+      }
       if (remaining === 1) return "Final";
       if (remaining === 2) return "Semifinal";
       if (remaining === 3) return "Perempatfinal";
+      if (remaining === 4) return "Babak 16 Besar";
       return `Babak ${roundIndex + 1}`;
+    }
+
+    // Buang laga yang benar-benar kosong: tidak ada tim dan tidak ada laga pengumpan.
+    // Dilakukan berulang, karena laga kosong bisa "menurunkan" kekosongan ke babak berikutnya.
+    function tanpaLagaKosong(daftar) {
+      let hasil = daftar.slice();
+      let berubah = true;
+      while (berubah) {
+        berubah = false;
+        const idAda = new Set(hasil.map(m => m.id));
+        const pengumpan = new Set();
+        hasil.forEach(m => {
+          if (m.nextMatchId && idAda.has(m.nextMatchId)) pengumpan.add(`${m.nextMatchId}:${m.nextSlot}`);
+        });
+        const saring = hasil.filter(m => {
+          const adaTim = !!(m.homeId || m.awayId);
+          const adaPengumpan = pengumpan.has(`${m.id}:home`) || pengumpan.has(`${m.id}:away`);
+          return adaTim || adaPengumpan;
+        });
+        if (saring.length !== hasil.length) {
+          hasil = saring;
+          berubah = true;
+        }
+      }
+      return hasil;
     }
 
     function getCupWinnerFromMatches(matchesList, teamsList) {
@@ -1144,9 +1176,9 @@
           return;
         }
 
-        // Mode Cup / Knockout Sampai Final
+        // Mode Cup / Knockout Sampai Final: bagan lama selalu dibersihkan dulu,
+        // supaya sisa laga kosong dari bagan sebelumnya tidak ikut tampil.
         if (state.matches.length > 0) {
-          if (!confirm("Bagan Cup yang lama akan diganti dengan bagan baru sampai Final. Lanjutkan?")) return;
           const delBatch = writeBatch(db);
           state.matches.forEach(m => delBatch.delete(doc(db, "arenahub", "data", "matches", m.id)));
           await delBatch.commit();
@@ -1190,7 +1222,7 @@
         const infoLaga = new Map();
 
         roundsPlan.forEach((babak, r) => {
-          const roundLabel = getRoundLabel(totalRounds, r);
+          const roundLabel = getRoundLabel(totalRounds, r, babak.matches.length);
           babak.matches.forEach((m, mIdx) => {
             infoLaga.set(m.id, m);
             matchObjectsMap.set(m.id, {
@@ -1605,7 +1637,7 @@
           : `<p class="text-slate-500 text-sm">Belum ada bagan Cup. Admin dapat membuatnya di tab Jadwal, Bagan & Skor.</p>`;
       } else {
         const roundsMap = new Map();
-        sortedMatches.forEach(m => {
+        tanpaLagaKosong(sortedMatches).forEach(m => {
           const rIdx = m.roundIndex ?? 0;
           if (!roundsMap.has(rIdx)) roundsMap.set(rIdx, []);
           roundsMap.get(rIdx).push(m);
@@ -1787,7 +1819,7 @@
 
         if (isCup) {
           const roundsMap = new Map();
-          sortedMatches.forEach(m => {
+          tanpaLagaKosong(sortedMatches).forEach(m => {
             const rIdx = m.roundIndex ?? 0;
             if (!roundsMap.has(rIdx)) roundsMap.set(rIdx, []);
             roundsMap.get(rIdx).push(m);
