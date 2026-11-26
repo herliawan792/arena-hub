@@ -36,18 +36,38 @@
     }
     @keyframes winnerPulseGlow {
       0%, 100% {
-        box-shadow: 0 0 8px rgba(16, 185, 129, 0.65), 0 0 18px rgba(16, 185, 129, 0.35);
-        border-color: #34d399;
+        box-shadow: 0 0 8px rgba(250, 204, 21, 0.65), 0 0 18px rgba(245, 158, 11, 0.35);
+        border-color: #facc15;
       }
       50% {
-        box-shadow: 0 0 16px rgba(52, 211, 153, 0.95), 0 0 28px rgba(16, 185, 129, 0.65);
-        border-color: #6ee7b7;
+        box-shadow: 0 0 16px rgba(253, 224, 71, 0.95), 0 0 28px rgba(245, 158, 11, 0.65);
+        border-color: #fef08a;
       }
     }
     .winner-glow {
-      border: 2px solid #34d399;
+      border: 2px solid #facc15;
       animation: winnerPulseGlow 2s ease-in-out infinite;
     }
+    @keyframes crownFloat {
+      0%, 100% {
+        transform: translateX(-50%) translateY(0px) rotate(-4deg) scale(1);
+        filter: drop-shadow(0 0 6px rgba(250, 204, 21, 0.85));
+      }
+      50% {
+        transform: translateX(-50%) translateY(-4px) rotate(4deg) scale(1.08);
+        filter: drop-shadow(0 0 12px rgba(253, 224, 71, 1));
+      }
+    }
+    .gold-crown-anim {
+      position: absolute;
+      left: 50%;
+      animation: crownFloat 2.1s ease-in-out infinite;
+      pointer-events: none;
+      z-index: 20;
+    }
+    .crown-sm { top: -11px; width: 16px; height: 12px; }
+    .crown-md { top: -13px; width: 20px; height: 15px; }
+    .crown-lg { top: -16px; width: 26px; height: 20px; }
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: #070b14; }
     ::-webkit-scrollbar-thumb { background: #1e2e4f; border-radius: 9999px; }
@@ -261,7 +281,7 @@
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h3 class="text-base font-bold text-white">Kelola Jadwal, Bagan & Skor</h3>
-              <p class="text-xs text-slate-400">Untuk Sistem Gugur: buat bagan penuh sampai Final, atur tim tiap slot & jadwal, lalu publikasikan ke penonton.</p>
+              <p class="text-xs text-slate-400">Untuk Sistem Gugur: buat bagan sampai Final; slot tunggal otomatis masuk ke babak berikutnya, lalu publikasikan ke penonton.</p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
               <button type="button" id="btnGenerateSchedule" class="px-3.5 py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 text-xs font-bold transition">
@@ -353,14 +373,15 @@
       </div>
 
       <div id="cupBracketWrapper" class="hidden space-y-6">
-        <div id="cupWinnerBanner" class="glass-card rounded-2xl p-5 border border-emerald-500/30 bg-gradient-to-r from-emerald-500/10 via-slate-900/90 to-slate-900/90 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div id="cupWinnerBanner" class="glass-card rounded-2xl p-5 border border-amber-400/30 bg-gradient-to-r from-amber-500/10 via-slate-900/90 to-slate-900/90 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div class="flex items-center gap-4">
-            <div id="winnerLogoFrame" class="w-14 h-14 rounded-2xl bg-slate-800 flex items-center justify-center overflow-hidden">
-              <img id="winnerTeamLogo" src="" alt="Winner Logo" class="hidden w-full h-full object-cover" />
+            <div id="winnerLogoFrame" class="relative w-14 h-14 rounded-2xl bg-slate-800 flex items-center justify-center overflow-visible">
+              <div id="winnerCrownSlot"></div>
+              <img id="winnerTeamLogo" src="" alt="Winner Logo" class="hidden w-full h-full rounded-2xl object-cover" />
               <span id="winnerPlaceholderIcon" class="text-2xl">🏆</span>
             </div>
             <div>
-              <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-400">Tabel Juara / Winner</span>
+              <span class="text-[11px] font-bold uppercase tracking-wider text-amber-400">Tabel Juara / Winner</span>
               <h3 id="winnerTeamName" class="text-xl font-extrabold text-white mt-0.5">Menunggu Hasil Final</h3>
               <p id="winnerSubText" class="text-xs text-slate-400">Pemenang laga Final otomatis tercatat sebagai Juara Turnamen.</p>
             </div>
@@ -422,10 +443,13 @@
           </button>
         </div>
 
-        <div id="archiveDetailWinner" class="hidden p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-4">
-          <img id="archiveWinnerImg" src="" alt="Winner" class="w-12 h-12 rounded-xl object-cover winner-glow" />
+        <div id="archiveDetailWinner" class="hidden p-4 rounded-xl bg-amber-500/10 border border-amber-400/30 flex items-center gap-4">
+          <div class="relative shrink-0">
+            <span class="gold-crown-anim crown-md"><svg viewBox="0 0 24 18" fill="none" class="w-full h-full"><path d="M2 15L4.5 4L9.2 9.5L12 2.5L14.8 9.5L19.5 4L22 15H2Z" fill="#facc15" stroke="#fde047" stroke-width="1.3" stroke-linejoin="round"/><circle cx="12" cy="1.8" r="1.4" fill="#fef08a"/></svg></span>
+            <img id="archiveWinnerImg" src="" alt="Winner" class="w-12 h-12 rounded-xl object-cover winner-glow" />
+          </div>
           <div>
-            <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Juara Turnamen</span>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-amber-400">Juara Turnamen</span>
             <p id="archiveWinnerName" class="text-base font-extrabold text-white">-</p>
           </div>
         </div>
@@ -565,12 +589,31 @@
       toastTimer = setTimeout(() => el.classList.add("hidden"), 3200);
     }
 
-    // Aman dari konflik kutip ganda di atribut HTML src="..."
     const defaultTeamLogo = (name) => {
       const cleanText = String(name || "TB").replace(/[^a-zA-Z0-9]/g, "").substring(0, 2).toUpperCase() || "TB";
       const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><rect width='80' height='80' rx='18' fill='#1e293b'/><text x='50%' y='54%' dominant-baseline='middle' text-anchor='middle' fill='#94a3b8' font-family='sans-serif' font-weight='800' font-size='26'>${cleanText}</text></svg>`;
       return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
     };
+
+    function crownSvgHtml(sizeClass = "crown-sm") {
+      return `
+        <span class="gold-crown-anim ${sizeClass}" aria-hidden="true">
+          <svg viewBox="0 0 24 18" fill="none" class="w-full h-full">
+            <path d="M2 15L4.5 4L9.2 9.5L12 2.5L14.8 9.5L19.5 4L22 15H2Z" fill="#facc15" stroke="#fef08a" stroke-width="1.3" stroke-linejoin="round"/>
+            <circle cx="12" cy="1.8" r="1.4" fill="#fef08a"/>
+          </svg>
+        </span>
+      `;
+    }
+
+    function renderTeamLogoFrame({ src, alt, sizeClasses, crowned = false, crownSize = "crown-sm", extraImgClasses = "" }) {
+      return `
+        <div class="relative inline-flex items-center justify-center shrink-0">
+          ${crowned ? crownSvgHtml(crownSize) : ""}
+          <img src="${src}" alt="${alt}" class="${sizeClasses} object-cover ${crowned ? 'winner-glow' : ''} ${extraImgClasses}" />
+        </div>
+      `;
+    }
 
     function compressImageToBase64(file, maxSize = 160) {
       return new Promise((resolve, reject) => {
@@ -674,6 +717,13 @@
         return tMap[finalMatch.awayId] || null;
       }
       return null;
+    }
+
+    function getLeagueLeaderId(standingsList) {
+      if (!standingsList || !standingsList.length) return null;
+      const top = standingsList[0];
+      if (!top || top.played <= 0) return null;
+      return top.id;
     }
 
     function applyBranding(logoSrc) {
@@ -836,7 +886,11 @@
       state.isMutatingMatches = true;
       try {
         const standingsSnapshot = computeStandings(state.teams, state.matches, cfg);
-        const winnerSnapshot = getCupWinnerFromMatches(state.matches, state.teams);
+        const winnerSnapshot = cfg.format === "cup"
+          ? getCupWinnerFromMatches(state.matches, state.teams)
+          : (standingsSnapshot[0] && standingsSnapshot[0].played > 0
+              ? { id: standingsSnapshot[0].id, name: standingsSnapshot[0].name, logo: standingsSnapshot[0].logo || "" }
+              : null);
 
         await addDoc(archivesColRef, {
           name: cfg.name,
@@ -932,7 +986,7 @@
       e.target.reset();
     });
 
-    // Generate Jadwal Liga / Bagan Cup Sampai Final
+    // Generate Jadwal Liga / Bagan Cup Sampai Final (Otomatis Bye Tanpa Simulasi)
     document.getElementById("btnGenerateSchedule").addEventListener("click", async () => {
       if (state.isMutatingMatches) return;
       if (state.teams.length < 2) {
@@ -996,12 +1050,12 @@
           roundDocIds.push(ids);
         }
 
+        const matchObjectsMap = new Map();
         const baseStart = new Date();
         baseStart.setHours(baseStart.getHours() + 2, 0, 0, 0);
         const intervalMs = 60 * 60 * 1000;
         let slotCounter = 0;
         const seededTeams = [...state.teams];
-        const batch = writeBatch(db);
 
         for (let r = 0; r < totalRounds; r++) {
           const countInRound = roundDocIds[r].length;
@@ -1013,12 +1067,10 @@
             const nextMatchId = nextRoundIds ? nextRoundIds[Math.floor(mIdx / 2)] : null;
             const nextSlot = nextRoundIds ? (mIdx % 2 === 0 ? "home" : "away") : null;
 
-            const homeId = r === 0 ? (seededTeams[mIdx * 2]?.id || null) : null;
-            const awayId = r === 0 ? (seededTeams[mIdx * 2 + 1]?.id || null) : null;
-
-            batch.set(doc(db, "arenahub", "data", "matches", docId), {
-              homeId,
-              awayId,
+            matchObjectsMap.set(docId, {
+              homeId: null,
+              awayId: null,
+              isByeMatch: false,
               round: roundLabel,
               roundIndex: r,
               matchOrder: mIdx,
@@ -1036,10 +1088,39 @@
           }
         }
 
+        // Isi slot babak 0: jika tim sendirian (tidak punya lawan di slot pasangannya), otomatis masuk ke slot babak berikutnya tanpa laga simulasi
+        for (let mIdx = 0; mIdx < roundDocIds[0].length; mIdx++) {
+          const docId = roundDocIds[0][mIdx];
+          const curr = matchObjectsMap.get(docId);
+          const homeId = seededTeams[mIdx * 2]?.id || null;
+          const awayId = seededTeams[mIdx * 2 + 1]?.id || null;
+
+          if (homeId && awayId) {
+            curr.homeId = homeId;
+            curr.awayId = awayId;
+          } else if (homeId && !awayId) {
+            curr.isByeMatch = true;
+            if (curr.nextMatchId && curr.nextSlot && matchObjectsMap.has(curr.nextMatchId)) {
+              matchObjectsMap.get(curr.nextMatchId)[`${curr.nextSlot}Id`] = homeId;
+            }
+          } else if (!homeId && awayId) {
+            curr.isByeMatch = true;
+            if (curr.nextMatchId && curr.nextSlot && matchObjectsMap.has(curr.nextMatchId)) {
+              matchObjectsMap.get(curr.nextMatchId)[`${curr.nextSlot}Id`] = awayId;
+            }
+          }
+        }
+
+        const batch = writeBatch(db);
+        matchObjectsMap.forEach((dataObj, id) => {
+          // Laga bye murni tanpa pasangan tidak perlu dijadikan pertandingan simulasi
+          if (dataObj.isByeMatch) return;
+          batch.set(doc(db, "arenahub", "data", "matches", id), dataObj);
+        });
         batch.set(configDocRef, { cupPublished: false }, { merge: true });
         await batch.commit();
 
-        showToast(`Bagan Cup (${bracketSize} slot, ${totalRounds} babak sampai Final) siap diatur!`);
+        showToast(`Bagan Cup (${totalRounds} babak sampai Final) siap diatur!`);
       } finally {
         state.isMutatingMatches = false;
         btn.disabled = false;
@@ -1156,7 +1237,7 @@
               </div>
               <h3 class="font-extrabold text-base text-white">${arc.name}</h3>
               <p class="text-xs text-slate-400">${arc.venue || '-'} • ${arc.sport} • ${arc.teams?.length || 0} Tim • ${arc.matches?.length || 0} Laga</p>
-              ${arc.winner ? `<p class="text-xs font-bold text-emerald-300 pt-1">🏆 Juara: ${arc.winner.name}</p>` : ''}
+              ${arc.winner ? `<p class="text-xs font-bold text-amber-300 pt-1">👑 Juara: ${arc.winner.name}</p>` : ''}
             </div>
             <div class="flex items-center gap-2 pt-2 border-t border-slate-800/80">
               <button onclick="window.openArchiveDetail('${arc.id}')" class="flex-1 py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 text-xs font-bold transition">
@@ -1195,13 +1276,21 @@
         ? selectedArc.standings
         : computeStandings(arcTeams, arcMatches, selectedArc);
 
+      const arcCrownId = selectedArc.winner?.id || (selectedArc.format === "league" ? getLeagueLeaderId(arcStandings) : null);
+
       const standingsWrap = document.getElementById("archiveDetailStandingsWrap");
       standingsWrap.classList.toggle("hidden", selectedArc.format === "cup");
       document.getElementById("archiveDetailStandingsBody").innerHTML = arcStandings.map((t, idx) => `
         <tr>
-          <td class="py-2 px-3 text-center font-bold ${idx < 3 ? 'text-emerald-400' : 'text-slate-400'}">${idx + 1}</td>
-          <td class="py-2 px-3 flex items-center gap-2 font-semibold text-white">
-            <img src="${t.logo || defaultTeamLogo(t.name)}" class="w-6 h-6 rounded object-cover" />
+          <td class="py-2 px-3 text-center font-bold ${idx === 0 ? 'text-amber-400' : (idx < 3 ? 'text-emerald-400' : 'text-slate-400')}">${idx + 1}</td>
+          <td class="py-2 px-3 flex items-center gap-2.5 font-semibold text-white">
+            ${renderTeamLogoFrame({
+              src: t.logo || defaultTeamLogo(t.name),
+              alt: t.name,
+              sizeClasses: "w-7 h-7 rounded-lg",
+              crowned: arcCrownId === t.id,
+              crownSize: "crown-sm"
+            })}
             <span>${t.name}</span>
           </td>
           <td class="py-2 px-2 text-center text-emerald-400 font-semibold">${t.win}</td>
@@ -1216,11 +1305,13 @@
 
       const arcTeamMap = Object.fromEntries(arcTeams.map(t => [t.id, t]));
       document.getElementById("archiveDetailMatches").innerHTML = arcMatches.length ? arcMatches.map(m => {
-        const h = m.homeId ? (arcTeamMap[m.homeId] || teamMap[m.homeId] || { name: "TBD", logo: defaultTeamLogo("TB") }) : { name: "TBD", logo: defaultTeamLogo("TB") };
-        const a = m.awayId ? (arcTeamMap[m.awayId] || teamMap[m.awayId] || { name: "TBD", logo: defaultTeamLogo("TB") }) : { name: "TBD", logo: defaultTeamLogo("TB") };
-        const done = m.status === "finished";
+        const h = m.homeId ? (arcTeamMap[m.homeId] || teamMap[m.homeId] || { id: null, name: "Menunggu", logo: defaultTeamLogo("MN") }) : { id: null, name: "Menunggu", logo: defaultTeamLogo("MN") };
+        const a = m.awayId ? (arcTeamMap[m.awayId] || teamMap[m.awayId] || { id: null, name: "Menunggu", logo: defaultTeamLogo("MN") }) : { id: null, name: "Menunggu", logo: defaultTeamLogo("MN") };
+        const done = m.status === "finished" && m.homeScore !== null && m.awayScore !== null;
         const homeWon = done && Number(m.homeScore) > Number(m.awayScore);
         const awayWon = done && Number(m.awayScore) > Number(m.homeScore);
+        const hCrown = (m.isFinal && homeWon) || (!isArcCup(selectedArc) && h.id && h.id === arcCrownId);
+        const aCrown = (m.isFinal && awayWon) || (!isArcCup(selectedArc) && a.id && a.id === arcCrownId);
         return `
           <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2">
             <div class="flex justify-between text-[11px] text-slate-400">
@@ -1229,18 +1320,34 @@
             </div>
             <div class="flex items-center justify-between gap-2">
               <div class="flex items-center gap-2 min-w-0">
-                <img src="${h.logo || defaultTeamLogo(h.name)}" class="w-7 h-7 rounded-lg object-cover shrink-0 ${homeWon ? 'winner-glow' : ''}" />
-                <span class="text-xs font-bold truncate ${homeWon ? 'text-emerald-300' : 'text-white'}">${h.name}</span>
+                ${renderTeamLogoFrame({
+                  src: h.logo || defaultTeamLogo(h.name),
+                  alt: h.name,
+                  sizeClasses: "w-7 h-7 rounded-lg",
+                  crowned: !!hCrown,
+                  crownSize: "crown-sm"
+                })}
+                <span class="text-xs font-bold truncate ${homeWon ? 'text-amber-300' : 'text-white'}">${h.name}</span>
               </div>
               <span class="px-2.5 py-1 rounded-lg bg-slate-950 font-extrabold text-xs text-white shrink-0">${done ? `${m.homeScore} : ${m.awayScore}` : 'VS'}</span>
               <div class="flex items-center gap-2 min-w-0 text-right">
-                <span class="text-xs font-bold truncate ${awayWon ? 'text-emerald-300' : 'text-white'}">${a.name}</span>
-                <img src="${a.logo || defaultTeamLogo(a.name)}" class="w-7 h-7 rounded-lg object-cover shrink-0 ${awayWon ? 'winner-glow' : ''}" />
+                <span class="text-xs font-bold truncate ${awayWon ? 'text-amber-300' : 'text-white'}">${a.name}</span>
+                ${renderTeamLogoFrame({
+                  src: a.logo || defaultTeamLogo(a.name),
+                  alt: a.name,
+                  sizeClasses: "w-7 h-7 rounded-lg",
+                  crowned: !!aCrown,
+                  crownSize: "crown-sm"
+                })}
               </div>
             </div>
           </div>
         `;
       }).join("") : `<p class="text-slate-500 text-xs">Tidak ada data pertandingan pada arsip ini.</p>`;
+    }
+
+    function isArcCup(arc) {
+      return arc?.format === "cup";
     }
 
     function renderAll() {
@@ -1251,7 +1358,7 @@
       document.getElementById("headerSportBadge").textContent = `${cfg.sport} • Live Tournament`;
       document.getElementById("badgeFormat").textContent = isCup ? "Sistem Gugur (Cup)" : "Sistem Liga";
       document.getElementById("badgePointsRule").textContent = isCup
-        ? "Knockout Sampai Final • Pemenang Otomatis Naik"
+        ? "Knockout Sampai Final • Slot Tunggal Otomatis Maju"
         : `Menang ${cfg.winPts} | Seri ${cfg.drawPts} | Kalah ${cfg.lossPts}`;
       document.getElementById("displayTournamentName").textContent = cfg.name;
       document.getElementById("displayTournamentMeta").textContent = `${cfg.venue} • Cabang ${cfg.sport}`;
@@ -1280,47 +1387,64 @@
       document.getElementById("cupBracketWrapper").classList.toggle("hidden", !isCup);
 
       const standings = computeStandings(state.teams, state.matches, cfg);
-      document.getElementById("standingsTableBody").innerHTML = standings.length ? standings.map((t, idx) => `
-        <tr class="hover:bg-slate-800/40 transition">
-          <td class="py-3 px-4 text-center font-bold ${idx < 3 ? 'text-emerald-400' : 'text-slate-400'}">${idx + 1}</td>
-          <td class="py-3 px-4 flex items-center gap-3 font-semibold text-white">
-            <img src="${t.logo}" alt="${t.name}" class="w-7 h-7 rounded-lg object-cover bg-slate-800" />
-            <span>${t.name}</span>
-          </td>
-          <td class="py-3 px-3 text-center text-slate-300">${t.played}</td>
-          <td class="py-3 px-3 text-center text-emerald-400 font-semibold">${t.win}</td>
-          <td class="py-3 px-3 text-center text-slate-400">${t.draw}</td>
-          <td class="py-3 px-3 text-center text-rose-400">${t.loss}</td>
-          <td class="py-3 px-3 text-center text-slate-300">${t.gf}</td>
-          <td class="py-3 px-3 text-center text-slate-300">${t.ga}</td>
-          <td class="py-3 px-3 text-center font-medium ${t.gd >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${t.gd > 0 ? '+' + t.gd : t.gd}</td>
-          <td class="py-3 px-4 text-center font-extrabold text-white text-base">${t.pts}</td>
-        </tr>
-      `).join("") : `<tr><td colspan="10" class="py-8 text-center text-slate-500">Belum ada tim terdaftar.</td></tr>`;
+      const leagueLeaderId = !isCup ? getLeagueLeaderId(standings) : null;
+      const cupWinner = isCup ? getCupWinnerFromMatches(state.matches, state.teams) : null;
+      const activeCrownTeamId = isCup ? (cupWinner?.id || null) : leagueLeaderId;
+
+      document.getElementById("standingsTableBody").innerHTML = standings.length ? standings.map((t, idx) => {
+        const isLeader = !isCup && leagueLeaderId === t.id;
+        return `
+          <tr class="hover:bg-slate-800/40 transition ${isLeader ? 'bg-amber-500/5' : ''}">
+            <td class="py-3 px-4 text-center font-bold ${isLeader ? 'text-amber-400' : (idx < 3 ? 'text-emerald-400' : 'text-slate-400')}">${idx + 1}</td>
+            <td class="py-3 px-4 flex items-center gap-3 font-semibold text-white">
+              ${renderTeamLogoFrame({
+                src: t.logo,
+                alt: t.name,
+                sizeClasses: "w-8 h-8 rounded-lg bg-slate-800",
+                crowned: isLeader,
+                crownSize: "crown-sm"
+              })}
+              <span class="${isLeader ? 'text-amber-300 font-extrabold' : ''}">${t.name}</span>
+              ${isLeader ? `<span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-400/15 text-amber-300 font-bold border border-amber-400/30">Pemuncak</span>` : ''}
+            </td>
+            <td class="py-3 px-3 text-center text-slate-300">${t.played}</td>
+            <td class="py-3 px-3 text-center text-emerald-400 font-semibold">${t.win}</td>
+            <td class="py-3 px-3 text-center text-slate-400">${t.draw}</td>
+            <td class="py-3 px-3 text-center text-rose-400">${t.loss}</td>
+            <td class="py-3 px-3 text-center text-slate-300">${t.gf}</td>
+            <td class="py-3 px-3 text-center text-slate-300">${t.ga}</td>
+            <td class="py-3 px-3 text-center font-medium ${t.gd >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${t.gd > 0 ? '+' + t.gd : t.gd}</td>
+            <td class="py-3 px-4 text-center font-extrabold text-white text-base">${t.pts}</td>
+          </tr>
+        `;
+      }).join("") : `<tr><td colspan="10" class="py-8 text-center text-slate-500">Belum ada tim terdaftar.</td></tr>`;
 
       const teamMap = Object.fromEntries(state.teams.map(t => [t.id, t]));
 
-      const winner = getCupWinnerFromMatches(state.matches, state.teams);
+      // Tabel Winner Cup Publik
       const winnerImg = document.getElementById("winnerTeamLogo");
       const winnerIcon = document.getElementById("winnerPlaceholderIcon");
       const winnerFrame = document.getElementById("winnerLogoFrame");
+      const winnerCrownSlot = document.getElementById("winnerCrownSlot");
       const winnerNameEl = document.getElementById("winnerTeamName");
       const winnerSubEl = document.getElementById("winnerSubText");
       const winnerBadge = document.getElementById("winnerStatusBadge");
 
-      if (winner) {
-        winnerImg.src = winner.logo || defaultTeamLogo(winner.name);
+      if (cupWinner) {
+        winnerImg.src = cupWinner.logo || defaultTeamLogo(cupWinner.name);
         winnerImg.classList.remove("hidden");
         winnerIcon.classList.add("hidden");
         winnerFrame.classList.add("winner-glow");
-        winnerNameEl.textContent = winner.name;
+        winnerCrownSlot.innerHTML = crownSvgHtml("crown-lg");
+        winnerNameEl.textContent = cupWinner.name;
         winnerSubEl.textContent = `Juara ${cfg.name} (${cfg.sport})`;
         winnerBadge.textContent = "JUARA TURNAMEN";
-        winnerBadge.className = "px-3.5 py-1 rounded-full text-xs font-extrabold bg-emerald-500 text-slate-950";
+        winnerBadge.className = "px-3.5 py-1 rounded-full text-xs font-extrabold bg-amber-400 text-slate-950";
       } else {
         winnerImg.classList.add("hidden");
         winnerIcon.classList.remove("hidden");
         winnerFrame.classList.remove("winner-glow");
+        winnerCrownSlot.innerHTML = "";
         winnerNameEl.textContent = "Menunggu Hasil Final";
         winnerSubEl.textContent = "Pemenang laga Final otomatis tercatat sebagai Juara Turnamen.";
         winnerBadge.textContent = "Belum Ditentukan";
@@ -1354,31 +1478,45 @@
                 </div>
                 <div class="space-y-4">
                   ${rMatches.map(m => {
-                    const h = m.homeId ? (teamMap[m.homeId] || { name: "TBD", logo: defaultTeamLogo("TB") }) : { name: "TBD", logo: defaultTeamLogo("TB") };
-                    const a = m.awayId ? (teamMap[m.awayId] || { name: "TBD", logo: defaultTeamLogo("TB") }) : { name: "TBD", logo: defaultTeamLogo("TB") };
+                    const h = m.homeId ? (teamMap[m.homeId] || { id: null, name: "Menunggu", logo: defaultTeamLogo("MN") }) : { id: null, name: "Menunggu", logo: defaultTeamLogo("MN") };
+                    const a = m.awayId ? (teamMap[m.awayId] || { id: null, name: "Menunggu", logo: defaultTeamLogo("MN") }) : { id: null, name: "Menunggu", logo: defaultTeamLogo("MN") };
                     const done = m.status === "finished" && m.homeScore !== null && m.awayScore !== null;
                     const homeWon = done && Number(m.homeScore) > Number(m.awayScore);
                     const awayWon = done && Number(m.awayScore) > Number(m.homeScore);
+                    const hCrown = !!(m.isFinal && homeWon && h.id);
+                    const aCrown = !!(m.isFinal && awayWon && a.id);
                     return `
-                      <div class="glass-card rounded-2xl p-3.5 space-y-2.5 ${m.isFinal ? 'border border-emerald-500/40' : ''}">
+                      <div class="glass-card rounded-2xl p-3.5 space-y-2.5 ${m.isFinal ? 'border border-amber-400/40' : ''}">
                         <div class="flex items-center justify-between text-[11px] text-slate-400">
                           <span class="font-bold text-emerald-400">${m.isFinal ? 'FINAL' : m.round}</span>
                           <span>${formatMatchSchedule(m)}</span>
                         </div>
-                        <div class="space-y-1.5">
+                        <div class="space-y-2">
                           <div class="flex items-center justify-between bg-slate-900/90 px-2.5 py-2 rounded-xl">
-                            <div class="flex items-center gap-2 min-w-0">
-                              <img src="${h.logo || defaultTeamLogo(h.name)}" alt="${h.name}" class="w-7 h-7 rounded-lg object-cover shrink-0 ${homeWon ? 'winner-glow' : ''}" />
-                              <span class="text-xs font-bold truncate ${homeWon ? 'text-emerald-300' : (m.homeId ? 'text-white' : 'text-slate-400')}">${h.name}</span>
+                            <div class="flex items-center gap-2.5 min-w-0">
+                              ${renderTeamLogoFrame({
+                                src: h.logo || defaultTeamLogo(h.name),
+                                alt: h.name,
+                                sizeClasses: "w-7 h-7 rounded-lg",
+                                crowned: hCrown,
+                                crownSize: "crown-sm"
+                              })}
+                              <span class="text-xs font-bold truncate ${hCrown ? 'text-amber-300' : (m.homeId ? 'text-white' : 'text-slate-400')}">${h.name}</span>
                             </div>
-                            <span class="font-extrabold text-sm ml-2 ${homeWon ? 'text-emerald-400' : 'text-white'}">${done ? m.homeScore : '-'}</span>
+                            <span class="font-extrabold text-sm ml-2 ${hCrown ? 'text-amber-400' : 'text-white'}">${done ? m.homeScore : '-'}</span>
                           </div>
                           <div class="flex items-center justify-between bg-slate-900/90 px-2.5 py-2 rounded-xl">
-                            <div class="flex items-center gap-2 min-w-0">
-                              <img src="${a.logo || defaultTeamLogo(a.name)}" alt="${a.name}" class="w-7 h-7 rounded-lg object-cover shrink-0 ${awayWon ? 'winner-glow' : ''}" />
-                              <span class="text-xs font-bold truncate ${awayWon ? 'text-emerald-300' : (m.awayId ? 'text-white' : 'text-slate-400')}">${a.name}</span>
+                            <div class="flex items-center gap-2.5 min-w-0">
+                              ${renderTeamLogoFrame({
+                                src: a.logo || defaultTeamLogo(a.name),
+                                alt: a.name,
+                                sizeClasses: "w-7 h-7 rounded-lg",
+                                crowned: aCrown,
+                                crownSize: "crown-sm"
+                              })}
+                              <span class="text-xs font-bold truncate ${aCrown ? 'text-amber-300' : (m.awayId ? 'text-white' : 'text-slate-400')}">${a.name}</span>
                             </div>
-                            <span class="font-extrabold text-sm ml-2 ${awayWon ? 'text-emerald-400' : 'text-white'}">${done ? m.awayScore : '-'}</span>
+                            <span class="font-extrabold text-sm ml-2 ${aCrown ? 'text-amber-400' : 'text-white'}">${done ? m.awayScore : '-'}</span>
                           </div>
                         </div>
                       </div>
@@ -1399,11 +1537,13 @@
       });
 
       document.getElementById("publicMatchList").innerHTML = filteredMatches.length ? filteredMatches.map((m, i) => {
-        const h = m.homeId ? (teamMap[m.homeId] || { name: "TBD", logo: defaultTeamLogo("TB") }) : { name: "TBD", logo: defaultTeamLogo("TB") };
-        const a = m.awayId ? (teamMap[m.awayId] || { name: "TBD", logo: defaultTeamLogo("TB") }) : { name: "TBD", logo: defaultTeamLogo("TB") };
+        const h = m.homeId ? (teamMap[m.homeId] || { id: null, name: "Menunggu", logo: defaultTeamLogo("MN") }) : { id: null, name: "Menunggu", logo: defaultTeamLogo("MN") };
+        const a = m.awayId ? (teamMap[m.awayId] || { id: null, name: "Menunggu", logo: defaultTeamLogo("MN") }) : { id: null, name: "Menunggu", logo: defaultTeamLogo("MN") };
         const done = m.status === "finished" && m.homeScore !== null && m.awayScore !== null;
         const homeWon = done && Number(m.homeScore) > Number(m.awayScore);
         const awayWon = done && Number(m.awayScore) > Number(m.homeScore);
+        const hCrown = isCup ? !!(m.isFinal && homeWon && h.id) : !!(h.id && h.id === activeCrownTeamId);
+        const aCrown = isCup ? !!(m.isFinal && awayWon && a.id) : !!(a.id && a.id === activeCrownTeamId);
         return `
           <div class="glass-card rounded-2xl p-4 flex flex-col justify-between gap-3">
             <div class="flex items-center justify-between gap-2 text-xs text-slate-400">
@@ -1412,30 +1552,51 @@
             </div>
             <div class="flex items-center justify-between gap-2">
               <div class="flex-1 flex items-center gap-2.5 min-w-0">
-                <img src="${h.logo || defaultTeamLogo(h.name)}" alt="${h.name}" class="w-9 h-9 rounded-xl object-cover shrink-0 transition-all ${homeWon ? 'winner-glow' : ''}" />
-                <span class="font-bold text-sm truncate ${homeWon ? 'text-emerald-300' : 'text-white'}">${h.name}</span>
+                ${renderTeamLogoFrame({
+                  src: h.logo || defaultTeamLogo(h.name),
+                  alt: h.name,
+                  sizeClasses: "w-9 h-9 rounded-xl",
+                  crowned: hCrown,
+                  crownSize: "crown-sm"
+                })}
+                <span class="font-bold text-sm truncate ${hCrown ? 'text-amber-300' : 'text-white'}">${h.name}</span>
               </div>
               <div class="px-3.5 py-1.5 rounded-xl bg-slate-900 border border-slate-800 font-extrabold text-base text-white shrink-0">
                 ${done ? `${m.homeScore} : ${m.awayScore}` : 'VS'}
               </div>
               <div class="flex-1 flex items-center justify-end gap-2.5 text-right min-w-0">
-                <span class="font-bold text-sm truncate ${awayWon ? 'text-emerald-300' : 'text-white'}">${a.name}</span>
-                <img src="${a.logo || defaultTeamLogo(a.name)}" alt="${a.name}" class="w-9 h-9 rounded-xl object-cover shrink-0 transition-all ${awayWon ? 'winner-glow' : ''}" />
+                <span class="font-bold text-sm truncate ${aCrown ? 'text-amber-300' : 'text-white'}">${a.name}</span>
+                ${renderTeamLogoFrame({
+                  src: a.logo || defaultTeamLogo(a.name),
+                  alt: a.name,
+                  sizeClasses: "w-9 h-9 rounded-xl",
+                  crowned: aCrown,
+                  crownSize: "crown-sm"
+                })}
               </div>
             </div>
           </div>
         `;
       }).join("") : `<p class="text-slate-500 text-sm">Tidak ada pertandingan yang ditampilkan.</p>`;
 
-      document.getElementById("publicTeamGrid").innerHTML = standings.length ? standings.map(t => `
-        <div class="glass-card rounded-2xl p-4 flex items-center gap-4">
-          <img src="${t.logo}" alt="${t.name}" class="w-12 h-12 rounded-xl object-cover bg-slate-800" />
-          <div class="flex-1">
-            <h3 class="font-bold text-white">${t.name}</h3>
-            <p class="text-xs text-slate-400 mt-0.5">Main ${t.played} • Menang ${t.win} • ${t.pts} Poin</p>
+      document.getElementById("publicTeamGrid").innerHTML = standings.length ? standings.map(t => {
+        const isCrowned = !isCup && leagueLeaderId === t.id;
+        return `
+          <div class="glass-card rounded-2xl p-4 flex items-center gap-4 ${isCrowned ? 'border border-amber-400/30' : ''}">
+            ${renderTeamLogoFrame({
+              src: t.logo,
+              alt: t.name,
+              sizeClasses: "w-12 h-12 rounded-xl bg-slate-800",
+              crowned: isCrowned,
+              crownSize: "crown-md"
+            })}
+            <div class="flex-1">
+              <h3 class="font-bold ${isCrowned ? 'text-amber-300' : 'text-white'}">${t.name}</h3>
+              <p class="text-xs text-slate-400 mt-0.5">Main ${t.played} • Menang ${t.win} • ${t.pts} Poin</p>
+            </div>
           </div>
-        </div>
-      `).join("") : `<p class="text-slate-500 text-sm">Belum ada tim terdaftar.</p>`;
+        `;
+      }).join("") : `<p class="text-slate-500 text-sm">Belum ada tim terdaftar.</p>`;
 
       renderArchiveSection(teamMap);
 
@@ -1482,7 +1643,7 @@
             roundsMap.get(rIdx).push(m);
           });
 
-          const slotOptions = `<option value="">-- Kosong / TBD --</option>` + state.teams.map(t => `<option value="${t.id}">${t.name}</option>`).join("");
+          const slotOptions = `<option value="">-- Kosong / Menunggu --</option>` + state.teams.map(t => `<option value="${t.id}">${t.name}</option>`).join("");
           document.getElementById("adminCupEditorWrapper").innerHTML = [...roundsMap.entries()]
             .sort((a, b) => a[0] - b[0])
             .map(([rIdx, rMatches]) => `
@@ -1492,9 +1653,9 @@
                   ${rMatches.map((m, idx) => {
                     const done = m.status === "finished";
                     return `
-                      <div class="glass-card rounded-2xl p-4 space-y-3 border ${m.isFinal ? 'border-emerald-500/40' : 'border-slate-800'}">
+                      <div class="glass-card rounded-2xl p-4 space-y-3 border ${m.isFinal ? 'border-amber-400/40' : 'border-slate-800'}">
                         <div class="flex items-center justify-between text-xs">
-                          <span class="font-bold text-white">${m.isFinal ? '🏆 FINAL' : `Match #${idx + 1}`}</span>
+                          <span class="font-bold text-white">${m.isFinal ? '👑 FINAL' : `Match #${idx + 1}`}</span>
                           <span class="px-2 py-0.5 rounded text-[10px] font-bold ${done ? 'bg-emerald-500/15 text-emerald-400' : 'bg-slate-800 text-slate-400'}">
                             ${done ? 'Selesai' : 'Menunggu'}
                           </span>
