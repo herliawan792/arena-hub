@@ -34,6 +34,20 @@
       backdrop-filter: blur(12px);
       border: 1px solid rgba(255, 255, 255, 0.08);
     }
+    @keyframes winnerPulseGlow {
+      0%, 100% {
+        box-shadow: 0 0 8px rgba(16, 185, 129, 0.65), 0 0 18px rgba(16, 185, 129, 0.35);
+        border-color: #34d399;
+      }
+      50% {
+        box-shadow: 0 0 16px rgba(52, 211, 153, 0.95), 0 0 28px rgba(16, 185, 129, 0.65);
+        border-color: #6ee7b7;
+      }
+    }
+    .winner-glow {
+      border: 2px solid #34d399;
+      animation: winnerPulseGlow 2s ease-in-out infinite;
+    }
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: #070b14; }
     ::-webkit-scrollbar-thumb { background: #1e2e4f; border-radius: 9999px; }
@@ -235,12 +249,20 @@
         <div class="glass-card rounded-2xl p-6 space-y-4">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h3 class="text-base font-bold text-white">Tambah Pertandingan</h3>
+              <h3 class="text-base font-bold text-white">Kelola Jadwal & Skor Pertandingan</h3>
               <p class="text-xs text-slate-400">Jadwal otomatis disusun berurutan berdasarkan tanggal & jam pertandingan.</p>
             </div>
-            <button type="button" id="btnGenerateSchedule" class="px-4 py-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-xs font-bold transition">
-              Generate Jadwal Otomatis
-            </button>
+            <div class="flex flex-wrap items-center gap-2">
+              <button type="button" id="btnGenerateSchedule" class="px-3.5 py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 text-xs font-bold transition">
+                Generate Jadwal Otomatis
+              </button>
+              <button type="button" id="btnResetAllScores" class="px-3.5 py-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-xs font-bold transition">
+                Reset Semua Skor
+              </button>
+              <button type="button" id="btnDeleteAllMatches" class="px-3.5 py-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-400 text-xs font-bold transition">
+                Hapus Semua Jadwal
+              </button>
+            </div>
           </div>
 
           <form id="formMatch" class="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
@@ -378,6 +400,7 @@
       addDoc,
       updateDoc,
       deleteDoc,
+      writeBatch,
       collection,
       onSnapshot,
       serverTimestamp
@@ -422,15 +445,13 @@
       isAdmin: false
     };
 
-    let pendingBrandLogo = null; // null = tidak diubah, "" = direset ke default, string = logo baru
+    let pendingBrandLogo = null;
 
-    // Default Logo Tim
     const defaultTeamLogo = (name) => {
       const initial = (name || "T").substring(0, 2).toUpperCase();
       return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80"><rect width="80" height="80" rx="18" fill="%2310b981"/><text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" fill="%23070b14" font-family="sans-serif" font-weight="800" font-size="28">${initial}</text></svg>`;
     };
 
-    // Kompres Gambar ke Base64 Kecil
     function compressImageToBase64(file, maxSize = 160) {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -455,7 +476,6 @@
       });
     }
 
-    // Format Tanggal & Jam Indonesia + Timestamp Sorting
     function parseMatchTimestamp(m) {
       if (typeof m.matchDateTime === "number") return m.matchDateTime;
       if (m.matchDateTime) {
@@ -491,7 +511,6 @@
       });
     }
 
-    // Terapkan Logo ARENA HUB & Favicon
     function applyBranding(logoSrc) {
       const customImg = document.getElementById("customBrandImg");
       const defaultSvg = document.getElementById("defaultBrandSvg");
@@ -513,7 +532,6 @@
       }
     }
 
-    // Status Sync UI
     function setSyncStatus(online, text) {
       const dot = document.getElementById("syncDot");
       const label = document.getElementById("syncText");
@@ -545,7 +563,6 @@
       renderAll();
     });
 
-    // Listener Auth Admin
     onAuthStateChanged(auth, (user) => {
       state.isAdmin = !!user;
       document.getElementById("adminPanel").classList.toggle("hidden", !state.isAdmin);
@@ -589,7 +606,7 @@
       await signOut(auth);
     });
 
-    // Preview Logo ARENA HUB saat dipilih
+    // Preview Logo ARENA HUB
     document.getElementById("cfgBrandLogoFile").addEventListener("change", async (e) => {
       if (e.target.files && e.target.files[0]) {
         const compressed = await compressImageToBase64(e.target.files[0], 160);
@@ -681,7 +698,7 @@
       document.getElementById("btnCancelTeamEdit").classList.add("hidden");
     });
 
-    // Tambah Pertandingan Terstruktur Berdasarkan Tanggal & Jam
+    // Tambah Pertandingan Manual
     document.getElementById("formMatch").addEventListener("submit", async (e) => {
       e.preventDefault();
       const homeId = document.getElementById("matchHome").value;
@@ -712,7 +729,7 @@
       e.target.reset();
     });
 
-    // Generate Jadwal Otomatis dengan Slot Waktu Berurutan
+    // Generate Jadwal Otomatis
     document.getElementById("btnGenerateSchedule").addEventListener("click", async () => {
       if (state.teams.length < 2) {
         alert("Minimal butuh 2 tim untuk membuat jadwal otomatis.");
@@ -722,7 +739,7 @@
 
       const baseStart = new Date();
       baseStart.setHours(baseStart.getHours() + 2, 0, 0, 0);
-      const intervalMs = 60 * 60 * 1000; // Jeda 1 jam antar laga
+      const intervalMs = 60 * 60 * 1000;
 
       const teams = [...state.teams];
       let matchIdx = 0;
@@ -759,6 +776,44 @@
           matchIdx++;
         }
       }
+    });
+
+    // Reset Semua Skor (Tanpa Menghapus Jadwal)
+    document.getElementById("btnResetAllScores").addEventListener("click", async () => {
+      if (!state.matches.length) {
+        alert("Belum ada jadwal pertandingan.");
+        return;
+      }
+      if (!confirm("Reset semua skor pertandingan menjadi belum dimulai? Jadwal tetap dipertahankan.")) return;
+
+      const batch = writeBatch(db);
+      state.matches.forEach(m => {
+        const ref = doc(db, "arenahub", "data", "matches", m.id);
+        batch.update(ref, {
+          homeScore: null,
+          awayScore: null,
+          status: "upcoming"
+        });
+      });
+      await batch.commit();
+      alert("Semua skor berhasil direset ke status belum dimulai.");
+    });
+
+    // Hapus Semua Jadwal
+    document.getElementById("btnDeleteAllMatches").addEventListener("click", async () => {
+      if (!state.matches.length) {
+        alert("Tidak ada jadwal untuk dihapus.");
+        return;
+      }
+      if (!confirm("Yakin ingin menghapus SEMUA jadwal pertandingan yang ada? Tindakan ini tidak dapat dibatalkan.")) return;
+
+      const batch = writeBatch(db);
+      state.matches.forEach(m => {
+        const ref = doc(db, "arenahub", "data", "matches", m.id);
+        batch.delete(ref);
+      });
+      await batch.commit();
+      alert("Semua jadwal pertandingan berhasil dihapus.");
     });
 
     // Hitung Klasemen Otomatis
@@ -816,7 +871,6 @@
       document.getElementById("displayTournamentName").textContent = cfg.name;
       document.getElementById("displayTournamentMeta").textContent = `${cfg.venue} • Cabang ${cfg.sport}`;
 
-      // Isi form konfigurasi jika belum sedang diedit file/url baru
       if (document.activeElement?.closest("#formConfig") === null) {
         document.getElementById("cfgName").value = cfg.name;
         document.getElementById("cfgSport").value = cfg.sport;
@@ -863,12 +917,14 @@
 
       const teamMap = Object.fromEntries(state.teams.map(t => [t.id, t]));
 
-      // Render Bagan Cup (Terurut Waktu)
+      // Render Bagan Cup (dengan efek menyala pada logo pemenang)
       const cupContainer = document.getElementById("cupBracketContainer");
       cupContainer.innerHTML = sortedMatches.length ? sortedMatches.map(m => {
         const h = teamMap[m.homeId] || { name: "TBD", logo: defaultTeamLogo("?") };
         const a = teamMap[m.awayId] || { name: "TBD", logo: defaultTeamLogo("?") };
         const done = m.status === "finished";
+        const homeWon = done && Number(m.homeScore) > Number(m.awayScore);
+        const awayWon = done && Number(m.awayScore) > Number(m.homeScore);
         return `
           <div class="glass-card rounded-2xl p-4 space-y-3">
             <div class="flex justify-between gap-2 text-[11px] font-semibold text-emerald-400 uppercase">
@@ -878,30 +934,32 @@
             <div class="space-y-2">
               <div class="flex items-center justify-between bg-slate-900/90 px-3 py-2 rounded-xl">
                 <div class="flex items-center gap-2.5">
-                  <img src="${h.logo || defaultTeamLogo(h.name)}" class="w-6 h-6 rounded-md object-cover" />
-                  <span class="text-sm font-semibold text-white">${h.name}</span>
+                  <img src="${h.logo || defaultTeamLogo(h.name)}" class="w-6 h-6 rounded-md object-cover ${homeWon ? 'winner-glow' : ''}" />
+                  <span class="text-sm font-semibold ${homeWon ? 'text-emerald-300' : 'text-white'}">${h.name}</span>
                 </div>
-                <span class="font-extrabold text-base ${done && m.homeScore > m.awayScore ? 'text-emerald-400' : 'text-white'}">${done ? m.homeScore : '-'}</span>
+                <span class="font-extrabold text-base ${homeWon ? 'text-emerald-400' : 'text-white'}">${done ? m.homeScore : '-'}</span>
               </div>
               <div class="flex items-center justify-between bg-slate-900/90 px-3 py-2 rounded-xl">
                 <div class="flex items-center gap-2.5">
-                  <img src="${a.logo || defaultTeamLogo(a.name)}" class="w-6 h-6 rounded-md object-cover" />
-                  <span class="text-sm font-semibold text-white">${a.name}</span>
+                  <img src="${a.logo || defaultTeamLogo(a.name)}" class="w-6 h-6 rounded-md object-cover ${awayWon ? 'winner-glow' : ''}" />
+                  <span class="text-sm font-semibold ${awayWon ? 'text-emerald-300' : 'text-white'}">${a.name}</span>
                 </div>
-                <span class="font-extrabold text-base ${done && m.awayScore > m.homeScore ? 'text-emerald-400' : 'text-white'}">${done ? m.awayScore : '-'}</span>
+                <span class="font-extrabold text-base ${awayWon ? 'text-emerald-400' : 'text-white'}">${done ? m.awayScore : '-'}</span>
               </div>
             </div>
           </div>
         `;
       }).join("") : `<p class="text-slate-500 text-sm">Belum ada bagan pertandingan.</p>`;
 
-      // Render Jadwal Publik (Terurut Waktu)
+      // Render Jadwal Publik (dengan animasi menyala di sekeliling logo tim yang menang)
       const filter = document.getElementById("filterMatchStatus").value;
       const filteredMatches = sortedMatches.filter(m => filter === "all" ? true : m.status === filter);
       document.getElementById("publicMatchList").innerHTML = filteredMatches.length ? filteredMatches.map((m, i) => {
         const h = teamMap[m.homeId] || { name: "TBD", logo: defaultTeamLogo("?") };
         const a = teamMap[m.awayId] || { name: "TBD", logo: defaultTeamLogo("?") };
         const done = m.status === "finished";
+        const homeWon = done && Number(m.homeScore) > Number(m.awayScore);
+        const awayWon = done && Number(m.awayScore) > Number(m.homeScore);
         return `
           <div class="glass-card rounded-2xl p-4 flex flex-col justify-between gap-3">
             <div class="flex items-center justify-between gap-2 text-xs text-slate-400">
@@ -910,15 +968,15 @@
             </div>
             <div class="flex items-center justify-between gap-2">
               <div class="flex-1 flex items-center gap-2.5">
-                <img src="${h.logo || defaultTeamLogo(h.name)}" class="w-8 h-8 rounded-lg object-cover" />
-                <span class="font-bold text-sm text-white">${h.name}</span>
+                <img src="${h.logo || defaultTeamLogo(h.name)}" class="w-9 h-9 rounded-xl object-cover transition-all ${homeWon ? 'winner-glow' : ''}" />
+                <span class="font-bold text-sm ${homeWon ? 'text-emerald-300' : 'text-white'}">${h.name}</span>
               </div>
               <div class="px-3.5 py-1.5 rounded-xl bg-slate-900 border border-slate-800 font-extrabold text-base text-white">
                 ${done ? `${m.homeScore} : ${m.awayScore}` : 'VS'}
               </div>
               <div class="flex-1 flex items-center justify-end gap-2.5 text-right">
-                <span class="font-bold text-sm text-white">${a.name}</span>
-                <img src="${a.logo || defaultTeamLogo(a.name)}" class="w-8 h-8 rounded-lg object-cover" />
+                <span class="font-bold text-sm ${awayWon ? 'text-emerald-300' : 'text-white'}">${a.name}</span>
+                <img src="${a.logo || defaultTeamLogo(a.name)}" class="w-9 h-9 rounded-xl object-cover transition-all ${awayWon ? 'winner-glow' : ''}" />
               </div>
             </div>
           </div>
@@ -958,18 +1016,23 @@
         document.getElementById("adminMatchList").innerHTML = sortedMatches.map((m, i) => {
           const h = teamMap[m.homeId] || { name: "TBD" };
           const a = teamMap[m.awayId] || { name: "TBD" };
+          const done = m.status === "finished";
           return `
             <div class="glass-card rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div class="text-xs text-slate-400">
                 <span class="text-emerald-400 font-semibold">#${i + 1} • ${m.round}</span> • ${formatMatchSchedule(m)}
+                <span class="ml-2 px-2 py-0.5 rounded text-[10px] font-bold ${done ? 'bg-emerald-500/15 text-emerald-400' : 'bg-slate-800 text-slate-400'}">
+                  ${done ? 'Selesai' : 'Belum Dimulai'}
+                </span>
                 <div class="text-sm font-bold text-white mt-1">${h.name} vs ${a.name}</div>
               </div>
-              <div class="flex items-center gap-2">
+              <div class="flex flex-wrap items-center gap-2">
                 <input type="number" min="0" id="hs-${m.id}" value="${m.homeScore ?? ''}" placeholder="0" class="w-14 text-center rounded-lg bg-slate-900 border border-slate-700 py-1.5 text-sm font-bold text-white" />
                 <span class="text-slate-500 font-bold">:</span>
                 <input type="number" min="0" id="as-${m.id}" value="${m.awayScore ?? ''}" placeholder="0" class="w-14 text-center rounded-lg bg-slate-900 border border-slate-700 py-1.5 text-sm font-bold text-white" />
                 <button onclick="window.saveScore('${m.id}')" class="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs">Simpan Skor</button>
-                <button onclick="window.deleteMatch('${m.id}')" class="px-2.5 py-1.5 rounded-lg bg-rose-500/15 text-rose-400 text-xs font-semibold">Hapus</button>
+                <button onclick="window.resetSingleScore('${m.id}')" class="px-2.5 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 text-xs font-semibold">Reset</button>
+                <button onclick="window.deleteMatch('${m.id}')" class="px-2.5 py-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 text-xs font-semibold">Hapus</button>
               </div>
             </div>
           `;
@@ -1004,6 +1067,14 @@
         homeScore: Number(hs),
         awayScore: Number(as),
         status: "finished"
+      });
+    };
+
+    window.resetSingleScore = async (id) => {
+      await updateDoc(doc(db, "arenahub", "data", "matches", id), {
+        homeScore: null,
+        awayScore: null,
+        status: "upcoming"
       });
     };
 
