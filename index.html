@@ -1184,37 +1184,53 @@
           await delBatch.commit();
         }
 
-        // Bagan minimal: tiap babak hanya memuat laga yang benar-benar ada.
-        // Tim ganjil otomatis maju ke babak berikutnya (bye) tanpa membuat laga kosong.
+        // Bagan standar: bye diberikan di babak pertama kepada tim teratas,
+        // sehingga tidak ada laga yang pemenangnya melompati satu babak.
         const baseStart = new Date();
         baseStart.setHours(baseStart.getHours() + 2, 0, 0, 0);
         const intervalMs = 60 * 60 * 1000;
         let slotCounter = 0;
         const seededTeams = [...state.teams];
 
-        let slots = seededTeams.map(t => ({ kind: "team", id: t.id }));
-        const roundsPlan = [];
+        const jumlahTim = seededTeams.length;
+        const ukuranIdeal = Math.pow(2, Math.ceil(Math.log2(jumlahTim)));
+        const jumlahBye = ukuranIdeal - jumlahTim;
 
-        while (slots.length > 1) {
+        // Susunan babak pertama: tim teratas mendapat bye, sisanya bertanding
+        const timSlot = (t) => (t ? { kind: "team", id: t.id } : null);
+        let pasanganBabak = [];
+        for (let i = 0; i < jumlahBye; i++) pasanganBabak.push([timSlot(seededTeams[i]), null]);
+        for (let i = jumlahBye; i < jumlahTim; i += 2) {
+          pasanganBabak.push([timSlot(seededTeams[i]), timSlot(seededTeams[i + 1])]);
+        }
+
+        const roundsPlan = [];
+        let aman = 0;
+
+        while (pasanganBabak.length > 0) {
           const lagaBabak = [];
-          const byeBabak = [];
           const nextSlots = [];
 
-          for (let i = 0; i < slots.length; i += 2) {
-            const a = slots[i];
-            const b = slots[i + 1];
-            if (b) {
+          pasanganBabak.forEach(([a, b]) => {
+            if (a && b) {
               const baru = { id: doc(matchesColRef).id, home: a, away: b };
               lagaBabak.push(baru);
               nextSlots.push({ kind: "match", id: baru.id });
-            } else {
-              byeBabak.push(a);
+            } else if (a || b) {
+              // bye: tim langsung maju ke babak berikutnya
+              nextSlots.push(a || b);
             }
-          }
+          });
 
-          roundsPlan.push({ matches: lagaBabak, byes: byeBabak });
-          // bye ditaruh paling depan supaya tim itu tidak menunggu dua babak berturut-turut
-          slots = [...byeBabak, ...nextSlots];
+          roundsPlan.push({ matches: lagaBabak });
+          if (nextSlots.length <= 1) break;
+
+          const berikutnya = [];
+          for (let i = 0; i < nextSlots.length; i += 2) {
+            berikutnya.push([nextSlots[i], nextSlots[i + 1] || null]);
+          }
+          pasanganBabak = berikutnya;
+          if (++aman > 12) break;
         }
 
         const totalRounds = roundsPlan.length;
@@ -1645,13 +1661,13 @@
 
         const roundEntries = [...roundsMap.entries()].sort((a, b) => a[0] - b[0]);
         cupContainer.innerHTML = `
-          <div class="flex gap-5 min-w-max items-start">
+          <div class="flex gap-5 min-w-max items-stretch">
             ${roundEntries.map(([rIdx, rMatches]) => `
-              <div class="w-72 space-y-3">
+              <div class="w-72 flex flex-col gap-3">
                 <div class="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs font-bold uppercase tracking-wider text-emerald-400 text-center">
                   ${rMatches[0]?.round || `Babak ${rIdx + 1}`}
                 </div>
-                <div class="space-y-4">
+                <div class="flex-1 flex flex-col justify-around gap-4">
                   ${rMatches.map(m => {
                     const h = m.homeId ? (teamMap[m.homeId] || { id: null, name: "Menunggu", logo: defaultTeamLogo("MN") }) : { id: null, name: "Menunggu", logo: defaultTeamLogo("MN") };
                     const a = m.awayId ? (teamMap[m.awayId] || { id: null, name: "Menunggu", logo: defaultTeamLogo("MN") }) : { id: null, name: "Menunggu", logo: defaultTeamLogo("MN") };
