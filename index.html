@@ -55,6 +55,9 @@
 </head>
 <body class="min-h-screen flex flex-col antialiased selection:bg-emerald-500 selection:text-white">
 
+  <!-- Toast Notifikasi Non-Blocking -->
+  <div id="toastBanner" class="hidden fixed bottom-5 right-5 z-50 max-w-sm px-4 py-3 rounded-xl bg-slate-900 border border-emerald-500/40 text-xs font-semibold text-emerald-300 shadow-2xl"></div>
+
   <!-- NAVBAR -->
   <header class="sticky top-0 z-40 glass-card border-b border-slate-800/80">
     <div class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -208,7 +211,6 @@
           </form>
         </div>
 
-        <!-- Blok Arsipkan Turnamen Aktif -->
         <div class="glass-card rounded-2xl p-6 border border-amber-500/25 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h3 class="text-sm font-extrabold uppercase tracking-wider text-amber-400">Arsipkan Turnamen Selesai & Buka Slot Baru</h3>
@@ -408,7 +410,6 @@
 
       <div id="archiveListCards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
 
-      <!-- Detail Arsip Terpilih -->
       <div id="archiveDetailPanel" class="hidden glass-card rounded-2xl p-6 space-y-6 border border-emerald-500/20">
         <div class="flex flex-wrap items-start justify-between gap-4 border-b border-slate-800 pb-4">
           <div>
@@ -549,10 +550,20 @@
       matches: [],
       archives: [],
       selectedArchiveId: null,
-      isAdmin: false
+      isAdmin: false,
+      isMutatingMatches: false
     };
 
     let pendingBrandLogo = null;
+    let toastTimer = null;
+
+    function showToast(msg) {
+      const el = document.getElementById("toastBanner");
+      el.textContent = msg;
+      el.classList.remove("hidden");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.add("hidden"), 3200);
+    }
 
     const defaultTeamLogo = (name) => {
       const initial = (name || "T").substring(0, 2).toUpperCase();
@@ -699,7 +710,7 @@
         state.config = { ...state.config, ...snap.data() };
       }
       setSyncStatus(true, "Live Sync");
-      renderAll();
+      if (!state.isMutatingMatches) renderAll();
     }, (err) => {
       console.error(err);
       setSyncStatus(false, "Cek firebaseConfig");
@@ -707,19 +718,19 @@
 
     onSnapshot(teamsColRef, (snap) => {
       state.teams = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      renderAll();
+      if (!state.isMutatingMatches) renderAll();
     });
 
     onSnapshot(matchesColRef, (snap) => {
       state.matches = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      renderAll();
+      if (!state.isMutatingMatches) renderAll();
     });
 
     onSnapshot(archivesColRef, (snap) => {
       state.archives = snap.docs
         .map(d => ({ id: d.id, ...d.data() }))
         .sort((a, b) => (b.archivedAt?.seconds || 0) - (a.archivedAt?.seconds || 0));
-      renderAll();
+      if (!state.isMutatingMatches) renderAll();
     });
 
     onAuthStateChanged(auth, (user) => {
@@ -810,46 +821,51 @@
 
       pendingBrandLogo = null;
       document.getElementById("cfgBrandLogoFile").value = "";
-      alert("Konfigurasi & logo ARENA HUB berhasil disimpan ke Firebase!");
+      showToast("Konfigurasi & logo ARENA HUB tersimpan.");
     });
 
-    // Arsipkan Turnamen Aktif & Buka Slot Turnamen Baru
+    // Arsipkan Turnamen Aktif
     document.getElementById("btnArchiveTournament").addEventListener("click", async () => {
       const cfg = state.config;
       if (!confirm(`Arsipkan turnamen "${cfg.name}" beserta seluruh tim dan pertandingan, lalu kosongkan turnamen aktif untuk turnamen baru?`)) {
         return;
       }
 
-      const standingsSnapshot = computeStandings(state.teams, state.matches, cfg);
-      const winnerSnapshot = getCupWinnerFromMatches(state.matches, state.teams);
+      state.isMutatingMatches = true;
+      try {
+        const standingsSnapshot = computeStandings(state.teams, state.matches, cfg);
+        const winnerSnapshot = getCupWinnerFromMatches(state.matches, state.teams);
 
-      await addDoc(archivesColRef, {
-        name: cfg.name,
-        sport: cfg.sport,
-        venue: cfg.venue,
-        format: cfg.format,
-        winPts: cfg.winPts,
-        drawPts: cfg.drawPts,
-        lossPts: cfg.lossPts,
-        teams: state.teams.map(t => ({ id: t.id, name: t.name, logo: t.logo || "" })),
-        matches: state.matches.map(m => ({ ...m, createdAt: null })),
-        standings: standingsSnapshot,
-        winner: winnerSnapshot ? { id: winnerSnapshot.id, name: winnerSnapshot.name, logo: winnerSnapshot.logo || "" } : null,
-        archivedAt: serverTimestamp()
-      });
+        await addDoc(archivesColRef, {
+          name: cfg.name,
+          sport: cfg.sport,
+          venue: cfg.venue,
+          format: cfg.format,
+          winPts: cfg.winPts,
+          drawPts: cfg.drawPts,
+          lossPts: cfg.lossPts,
+          teams: state.teams.map(t => ({ id: t.id, name: t.name, logo: t.logo || "" })),
+          matches: state.matches.map(m => ({ ...m, createdAt: null })),
+          standings: standingsSnapshot,
+          winner: winnerSnapshot ? { id: winnerSnapshot.id, name: winnerSnapshot.name, logo: winnerSnapshot.logo || "" } : null,
+          archivedAt: serverTimestamp()
+        });
 
-      // Hapus tim & pertandingan aktif agar siap untuk turnamen baru
-      const batch = writeBatch(db);
-      state.teams.forEach(t => batch.delete(doc(db, "arenahub", "data", "teams", t.id)));
-      state.matches.forEach(m => batch.delete(doc(db, "arenahub", "data", "matches", m.id)));
-      batch.set(configDocRef, {
-        name: "Turnamen Baru ARENA HUB",
-        cupPublished: false,
-        updatedAt: serverTimestamp()
-      }, { merge: true });
+        const batch = writeBatch(db);
+        state.teams.forEach(t => batch.delete(doc(db, "arenahub", "data", "teams", t.id)));
+        state.matches.forEach(m => batch.delete(doc(db, "arenahub", "data", "matches", m.id)));
+        batch.set(configDocRef, {
+          name: "Turnamen Baru ARENA HUB",
+          cupPublished: false,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
 
-      await batch.commit();
-      alert("Turnamen berhasil diarsipkan! Penonton dapat melihatnya di tab Arsip Turnamen, dan slot turnamen baru sudah siap dikonfigurasi.");
+        await batch.commit();
+        showToast("Turnamen berhasil diarsipkan & slot baru siap.");
+      } finally {
+        state.isMutatingMatches = false;
+        renderAll();
+      }
     });
 
     // Kelola Tim
@@ -893,11 +909,11 @@
       const awayId = document.getElementById("matchAway").value;
       const dtValue = document.getElementById("matchDateTime").value;
       if (!homeId || !awayId || homeId === awayId) {
-        alert("Pilih dua tim yang berbeda.");
+        showToast("Pilih dua tim yang berbeda.");
         return;
       }
       if (!dtValue) {
-        alert("Pilih tanggal dan jam pertandingan.");
+        showToast("Pilih tanggal dan jam pertandingan.");
         return;
       }
 
@@ -914,131 +930,147 @@
       e.target.reset();
     });
 
-    // Generate Jadwal Liga / Bagan Cup Sampai Final
+    // Generate Jadwal Liga / Bagan Cup Sampai Final (Anti-Glitch)
     document.getElementById("btnGenerateSchedule").addEventListener("click", async () => {
+      if (state.isMutatingMatches) return;
       if (state.teams.length < 2) {
-        alert("Minimal butuh 2 tim untuk membuat jadwal / bagan.");
+        showToast("Minimal butuh 2 tim untuk membuat jadwal / bagan.");
         return;
       }
 
-      if (state.config.format === "league") {
-        if (!confirm("Generate jadwal liga baru untuk semua tim?")) return;
+      const btn = document.getElementById("btnGenerateSchedule");
+      state.isMutatingMatches = true;
+      btn.disabled = true;
+
+      try {
+        if (state.config.format === "league") {
+          if (!confirm("Generate jadwal liga baru untuk semua tim?")) return;
+          const baseStart = new Date();
+          baseStart.setHours(baseStart.getHours() + 2, 0, 0, 0);
+          const intervalMs = 60 * 60 * 1000;
+          const batch = writeBatch(db);
+          let idx = 0;
+
+          for (let i = 0; i < state.teams.length; i++) {
+            for (let j = i + 1; j < state.teams.length; j++) {
+              const newRef = doc(matchesColRef);
+              batch.set(newRef, {
+                homeId: state.teams[i].id,
+                awayId: state.teams[j].id,
+                round: `Matchday ${idx + 1}`,
+                matchDateTime: baseStart.getTime() + idx * intervalMs,
+                homeScore: null,
+                awayScore: null,
+                status: "upcoming",
+                createdAt: serverTimestamp()
+              });
+              idx++;
+            }
+          }
+          await batch.commit();
+          showToast(`${idx} jadwal liga berhasil dibuat.`);
+          return;
+        }
+
+        // Mode Cup / Knockout Sampai Final
+        if (state.matches.length > 0) {
+          if (!confirm("Bagan Cup yang lama akan diganti dengan bagan baru sampai Final. Lanjutkan?")) return;
+          const delBatch = writeBatch(db);
+          state.matches.forEach(m => delBatch.delete(doc(db, "arenahub", "data", "matches", m.id)));
+          await delBatch.commit();
+        }
+
+        let bracketSize = 2;
+        while (bracketSize < state.teams.length) bracketSize *= 2;
+        const totalRounds = Math.log2(bracketSize);
+
+        const roundDocIds = [];
+        for (let r = 0; r < totalRounds; r++) {
+          const countInRound = bracketSize / Math.pow(2, r + 1);
+          const ids = [];
+          for (let mIdx = 0; mIdx < countInRound; mIdx++) {
+            ids.push(doc(matchesColRef).id);
+          }
+          roundDocIds.push(ids);
+        }
+
+        // Susun semua objek match terlebih dahulu agar BYE langsung mengisi slot babak berikutnya
+        const matchObjectsMap = new Map();
         const baseStart = new Date();
         baseStart.setHours(baseStart.getHours() + 2, 0, 0, 0);
         const intervalMs = 60 * 60 * 1000;
-        let idx = 0;
+        let slotCounter = 0;
+        const seededTeams = [...state.teams];
 
-        for (let i = 0; i < state.teams.length; i++) {
-          for (let j = i + 1; j < state.teams.length; j++) {
-            await addDoc(matchesColRef, {
-              homeId: state.teams[i].id,
-              awayId: state.teams[j].id,
-              round: `Matchday ${idx + 1}`,
-              matchDateTime: baseStart.getTime() + idx * intervalMs,
+        for (let r = 0; r < totalRounds; r++) {
+          const countInRound = roundDocIds[r].length;
+          const roundLabel = getRoundLabel(totalRounds, r);
+
+          for (let mIdx = 0; mIdx < countInRound; mIdx++) {
+            const docId = roundDocIds[r][mIdx];
+            const nextRoundIds = roundDocIds[r + 1] || null;
+            const nextMatchId = nextRoundIds ? nextRoundIds[Math.floor(mIdx / 2)] : null;
+            const nextSlot = nextRoundIds ? (mIdx % 2 === 0 ? "home" : "away") : null;
+
+            matchObjectsMap.set(docId, {
+              homeId: null,
+              awayId: null,
+              round: roundLabel,
+              roundIndex: r,
+              matchOrder: mIdx,
+              totalRounds,
+              isFinal: r === totalRounds - 1,
+              nextMatchId,
+              nextSlot,
+              matchDateTime: baseStart.getTime() + slotCounter * intervalMs,
               homeScore: null,
               awayScore: null,
               status: "upcoming",
               createdAt: serverTimestamp()
             });
-            idx++;
+            slotCounter++;
           }
         }
-        return;
-      }
 
-      if (state.matches.length > 0) {
-        if (!confirm("Bagan Cup yang lama akan diganti dengan bagan baru sampai Final. Lanjutkan?")) return;
-        const delBatch = writeBatch(db);
-        state.matches.forEach(m => delBatch.delete(doc(db, "arenahub", "data", "matches", m.id)));
-        await delBatch.commit();
-      }
+        // Isi babak 0 & proses BYE ke objek babak berikutnya
+        for (let mIdx = 0; mIdx < roundDocIds[0].length; mIdx++) {
+          const docId = roundDocIds[0][mIdx];
+          const curr = matchObjectsMap.get(docId);
+          const homeId = seededTeams[mIdx * 2]?.id || null;
+          const awayId = seededTeams[mIdx * 2 + 1]?.id || null;
+          curr.homeId = homeId;
+          curr.awayId = awayId;
 
-      let bracketSize = 2;
-      while (bracketSize < state.teams.length) bracketSize *= 2;
-      const totalRounds = Math.log2(bracketSize);
-
-      const roundDocIds = [];
-      for (let r = 0; r < totalRounds; r++) {
-        const countInRound = bracketSize / Math.pow(2, r + 1);
-        const ids = [];
-        for (let mIdx = 0; mIdx < countInRound; mIdx++) {
-          const newRef = doc(matchesColRef);
-          ids.push(newRef.id);
-        }
-        roundDocIds.push(ids);
-      }
-
-      const baseStart = new Date();
-      baseStart.setHours(baseStart.getHours() + 2, 0, 0, 0);
-      const intervalMs = 60 * 60 * 1000;
-      let slotCounter = 0;
-      const seededTeams = [...state.teams];
-      const batch = writeBatch(db);
-
-      for (let r = 0; r < totalRounds; r++) {
-        const countInRound = roundDocIds[r].length;
-        const roundLabel = getRoundLabel(totalRounds, r);
-
-        for (let mIdx = 0; mIdx < countInRound; mIdx++) {
-          const docId = roundDocIds[r][mIdx];
-          const nextRoundIds = roundDocIds[r + 1] || null;
-          const nextMatchId = nextRoundIds ? nextRoundIds[Math.floor(mIdx / 2)] : null;
-          const nextSlot = nextRoundIds ? (mIdx % 2 === 0 ? "home" : "away") : null;
-
-          let homeId = null;
-          let awayId = null;
-          let status = "upcoming";
-          let homeScore = null;
-          let awayScore = null;
-
-          if (r === 0) {
-            homeId = seededTeams[mIdx * 2]?.id || null;
-            awayId = seededTeams[mIdx * 2 + 1]?.id || null;
-
-            if (homeId && !awayId) {
-              status = "finished";
-              homeScore = 1;
-              awayScore = 0;
-              if (nextMatchId && nextSlot) {
-                batch.update(doc(db, "arenahub", "data", "matches", nextMatchId), {
-                  [`${nextSlot}Id`]: homeId
-                });
-              }
-            } else if (!homeId && awayId) {
-              status = "finished";
-              homeScore = 0;
-              awayScore = 1;
-              if (nextMatchId && nextSlot) {
-                batch.update(doc(db, "arenahub", "data", "matches", nextMatchId), {
-                  [`${nextSlot}Id`]: awayId
-                });
-              }
+          if (homeId && !awayId) {
+            curr.status = "finished";
+            curr.homeScore = 1;
+            curr.awayScore = 0;
+            if (curr.nextMatchId && curr.nextSlot && matchObjectsMap.has(curr.nextMatchId)) {
+              matchObjectsMap.get(curr.nextMatchId)[`${curr.nextSlot}Id`] = homeId;
+            }
+          } else if (!homeId && awayId) {
+            curr.status = "finished";
+            curr.homeScore = 0;
+            curr.awayScore = 1;
+            if (curr.nextMatchId && curr.nextSlot && matchObjectsMap.has(curr.nextMatchId)) {
+              matchObjectsMap.get(curr.nextMatchId)[`${curr.nextSlot}Id`] = awayId;
             }
           }
-
-          batch.set(doc(db, "arenahub", "data", "matches", docId), {
-            homeId,
-            awayId,
-            round: roundLabel,
-            roundIndex: r,
-            matchOrder: mIdx,
-            totalRounds,
-            isFinal: r === totalRounds - 1,
-            nextMatchId,
-            nextSlot,
-            matchDateTime: baseStart.getTime() + slotCounter * intervalMs,
-            homeScore,
-            awayScore,
-            status,
-            createdAt: serverTimestamp()
-          });
-          slotCounter++;
         }
-      }
 
-      batch.set(configDocRef, { cupPublished: false }, { merge: true });
-      await batch.commit();
-      alert(`Bagan Cup (${bracketSize} slot, ${totalRounds} babak sampai Final) berhasil dibuat!`);
+        const batch = writeBatch(db);
+        matchObjectsMap.forEach((dataObj, id) => {
+          batch.set(doc(db, "arenahub", "data", "matches", id), dataObj);
+        });
+        batch.set(configDocRef, { cupPublished: false }, { merge: true });
+        await batch.commit();
+
+        showToast(`Bagan Cup (${bracketSize} slot, ${totalRounds} babak sampai Final) siap diatur!`);
+      } finally {
+        state.isMutatingMatches = false;
+        btn.disabled = false;
+        renderAll();
+      }
     });
 
     document.getElementById("btnTogglePublishCup").addEventListener("click", async () => {
@@ -1047,37 +1079,49 @@
 
     document.getElementById("btnResetAllScores").addEventListener("click", async () => {
       if (!state.matches.length) {
-        alert("Belum ada jadwal pertandingan.");
+        showToast("Belum ada jadwal pertandingan.");
         return;
       }
       if (!confirm("Reset semua skor pertandingan menjadi belum dimulai? Jadwal tetap dipertahankan.")) return;
 
-      const batch = writeBatch(db);
-      state.matches.forEach(m => {
-        const updates = { homeScore: null, awayScore: null, status: "upcoming" };
-        if (state.config.format === "cup" && m.nextMatchId && m.nextSlot) {
-          batch.update(doc(db, "arenahub", "data", "matches", m.nextMatchId), {
-            [m.nextSlot + "Id"]: null
-          });
-        }
-        batch.update(doc(db, "arenahub", "data", "matches", m.id), updates);
-      });
-      await batch.commit();
-      alert("Semua skor berhasil direset.");
+      state.isMutatingMatches = true;
+      try {
+        const batch = writeBatch(db);
+        state.matches.forEach(m => {
+          const updates = { homeScore: null, awayScore: null, status: "upcoming" };
+          if (state.config.format === "cup" && m.nextMatchId && m.nextSlot) {
+            batch.update(doc(db, "arenahub", "data", "matches", m.nextMatchId), {
+              [m.nextSlot + "Id"]: null
+            });
+          }
+          batch.update(doc(db, "arenahub", "data", "matches", m.id), updates);
+        });
+        await batch.commit();
+        showToast("Semua skor berhasil direset.");
+      } finally {
+        state.isMutatingMatches = false;
+        renderAll();
+      }
     });
 
     document.getElementById("btnDeleteAllMatches").addEventListener("click", async () => {
       if (!state.matches.length) {
-        alert("Tidak ada jadwal untuk dihapus.");
+        showToast("Tidak ada jadwal untuk dihapus.");
         return;
       }
       if (!confirm("Yakin ingin menghapus SEMUA jadwal / bagan pertandingan?")) return;
 
-      const batch = writeBatch(db);
-      state.matches.forEach(m => batch.delete(doc(db, "arenahub", "data", "matches", m.id)));
-      batch.set(configDocRef, { cupPublished: false }, { merge: true });
-      await batch.commit();
-      alert("Semua jadwal pertandingan berhasil dihapus.");
+      state.isMutatingMatches = true;
+      try {
+        const batch = writeBatch(db);
+        state.matches.forEach(m => batch.delete(doc(db, "arenahub", "data", "matches", m.id)));
+        batch.set(configDocRef, { cupPublished: false }, { merge: true });
+        await batch.commit();
+        showToast("Semua jadwal pertandingan berhasil dihapus.");
+      } finally {
+        state.isMutatingMatches = false;
+        renderAll();
+      }
     });
 
     function computeStandings(teamsList = state.teams, matchesList = state.matches, cfg = state.config) {
@@ -1282,7 +1326,6 @@
 
       const teamMap = Object.fromEntries(state.teams.map(t => [t.id, t]));
 
-      // Tabel Winner Cup Publik
       const winner = getCupWinnerFromMatches(state.matches, state.teams);
       const winnerImg = document.getElementById("winnerTeamLogo");
       const winnerIcon = document.getElementById("winnerPlaceholderIcon");
@@ -1374,7 +1417,6 @@
         `;
       }
 
-      // Jadwal & Hasil Publik
       const filter = document.getElementById("filterMatchStatus").value;
       const filteredMatches = sortedMatches.filter(m => {
         if (isCup && !showCupPublic) return false;
@@ -1411,7 +1453,6 @@
         `;
       }).join("") : `<p class="text-slate-500 text-sm">Tidak ada pertandingan yang ditampilkan.</p>`;
 
-      // Grid Tim Publik
       document.getElementById("publicTeamGrid").innerHTML = standings.length ? standings.map(t => `
         <div class="glass-card rounded-2xl p-4 flex items-center gap-4">
           <img src="${t.logo}" class="w-12 h-12 rounded-xl object-cover bg-slate-800" />
@@ -1422,10 +1463,8 @@
         </div>
       `).join("") : `<p class="text-slate-500 text-sm">Belum ada tim terdaftar.</p>`;
 
-      // Render Arsip Turnamen
       renderArchiveSection(teamMap);
 
-      // Kontrol Admin
       if (state.isAdmin) {
         const teamOptions = state.teams.map(t => `<option value="${t.id}">${t.name}</option>`).join("");
         document.getElementById("matchHome").innerHTML = `<option value="">Pilih Tim Home</option>` + teamOptions;
@@ -1586,7 +1625,7 @@
       const awayId = document.getElementById(`cup-away-${id}`).value || null;
       const dtVal = document.getElementById(`cup-dt-${id}`).value;
       if (homeId && awayId && homeId === awayId) {
-        alert("Tim Slot 1 dan Slot 2 tidak boleh sama.");
+        showToast("Tim Slot 1 dan Slot 2 tidak boleh sama.");
         return;
       }
 
@@ -1595,14 +1634,14 @@
         awayId,
         matchDateTime: dtVal ? Date.parse(dtVal) : Number.MAX_SAFE_INTEGER
       });
-      alert("Slot tim & jadwal pertandingan tersimpan!");
+      showToast("Slot tim & jadwal tersimpan.");
     };
 
     window.saveScore = async (id) => {
       const hsRaw = document.getElementById(`hs-${id}`).value;
       const asRaw = document.getElementById(`as-${id}`).value;
       if (hsRaw === "" || asRaw === "") {
-        alert("Isi kedua skor pertandingan terlebih dahulu.");
+        showToast("Isi kedua skor pertandingan terlebih dahulu.");
         return;
       }
       const hs = Number(hsRaw);
@@ -1610,7 +1649,7 @@
       const matchObj = state.matches.find(m => m.id === id);
 
       if (state.config.format === "cup" && hs === as) {
-        alert("Pada Sistem Gugur (Cup), skor tidak boleh seri. Masukkan skor pemenang.");
+        showToast("Pada Sistem Gugur (Cup), skor tidak boleh seri.");
         return;
       }
 
@@ -1628,6 +1667,7 @@
           });
         }
       }
+      showToast("Skor berhasil disimpan.");
     };
 
     window.resetSingleScore = async (id) => {
@@ -1642,6 +1682,7 @@
           [matchObj.nextSlot + "Id"]: null
         });
       }
+      showToast("Skor pertandingan direset.");
     };
 
     window.deleteMatch = async (id) => {
