@@ -565,9 +565,11 @@
       toastTimer = setTimeout(() => el.classList.add("hidden"), 3200);
     }
 
+    // Aman dari konflik kutip ganda di atribut HTML src="..."
     const defaultTeamLogo = (name) => {
-      const initial = (name || "T").substring(0, 2).toUpperCase();
-      return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80"><rect width="80" height="80" rx="18" fill="%2310b981"/><text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" fill="%23070b14" font-family="sans-serif" font-weight="800" font-size="28">${initial}</text></svg>`;
+      const cleanText = String(name || "TB").replace(/[^a-zA-Z0-9]/g, "").substring(0, 2).toUpperCase() || "TB";
+      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><rect width='80' height='80' rx='18' fill='#1e293b'/><text x='50%' y='54%' dominant-baseline='middle' text-anchor='middle' fill='#94a3b8' font-family='sans-serif' font-weight='800' font-size='26'>${cleanText}</text></svg>`;
+      return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
     };
 
     function compressImageToBase64(file, maxSize = 160) {
@@ -663,7 +665,7 @@
 
     function getCupWinnerFromMatches(matchesList, teamsList) {
       const finalMatch = matchesList.find(m => m.isFinal);
-      if (!finalMatch || finalMatch.status !== "finished") return null;
+      if (!finalMatch || finalMatch.status !== "finished" || !finalMatch.homeId || !finalMatch.awayId) return null;
       const tMap = Object.fromEntries(teamsList.map(t => [t.id, t]));
       if (Number(finalMatch.homeScore) > Number(finalMatch.awayScore)) {
         return tMap[finalMatch.homeId] || null;
@@ -930,7 +932,7 @@
       e.target.reset();
     });
 
-    // Generate Jadwal Liga / Bagan Cup Sampai Final (Anti-Glitch)
+    // Generate Jadwal Liga / Bagan Cup Sampai Final
     document.getElementById("btnGenerateSchedule").addEventListener("click", async () => {
       if (state.isMutatingMatches) return;
       if (state.teams.length < 2) {
@@ -994,13 +996,12 @@
           roundDocIds.push(ids);
         }
 
-        // Susun semua objek match terlebih dahulu agar BYE langsung mengisi slot babak berikutnya
-        const matchObjectsMap = new Map();
         const baseStart = new Date();
         baseStart.setHours(baseStart.getHours() + 2, 0, 0, 0);
         const intervalMs = 60 * 60 * 1000;
         let slotCounter = 0;
         const seededTeams = [...state.teams];
+        const batch = writeBatch(db);
 
         for (let r = 0; r < totalRounds; r++) {
           const countInRound = roundDocIds[r].length;
@@ -1012,9 +1013,12 @@
             const nextMatchId = nextRoundIds ? nextRoundIds[Math.floor(mIdx / 2)] : null;
             const nextSlot = nextRoundIds ? (mIdx % 2 === 0 ? "home" : "away") : null;
 
-            matchObjectsMap.set(docId, {
-              homeId: null,
-              awayId: null,
+            const homeId = r === 0 ? (seededTeams[mIdx * 2]?.id || null) : null;
+            const awayId = r === 0 ? (seededTeams[mIdx * 2 + 1]?.id || null) : null;
+
+            batch.set(doc(db, "arenahub", "data", "matches", docId), {
+              homeId,
+              awayId,
               round: roundLabel,
               roundIndex: r,
               matchOrder: mIdx,
@@ -1032,36 +1036,6 @@
           }
         }
 
-        // Isi babak 0 & proses BYE ke objek babak berikutnya
-        for (let mIdx = 0; mIdx < roundDocIds[0].length; mIdx++) {
-          const docId = roundDocIds[0][mIdx];
-          const curr = matchObjectsMap.get(docId);
-          const homeId = seededTeams[mIdx * 2]?.id || null;
-          const awayId = seededTeams[mIdx * 2 + 1]?.id || null;
-          curr.homeId = homeId;
-          curr.awayId = awayId;
-
-          if (homeId && !awayId) {
-            curr.status = "finished";
-            curr.homeScore = 1;
-            curr.awayScore = 0;
-            if (curr.nextMatchId && curr.nextSlot && matchObjectsMap.has(curr.nextMatchId)) {
-              matchObjectsMap.get(curr.nextMatchId)[`${curr.nextSlot}Id`] = homeId;
-            }
-          } else if (!homeId && awayId) {
-            curr.status = "finished";
-            curr.homeScore = 0;
-            curr.awayScore = 1;
-            if (curr.nextMatchId && curr.nextSlot && matchObjectsMap.has(curr.nextMatchId)) {
-              matchObjectsMap.get(curr.nextMatchId)[`${curr.nextSlot}Id`] = awayId;
-            }
-          }
-        }
-
-        const batch = writeBatch(db);
-        matchObjectsMap.forEach((dataObj, id) => {
-          batch.set(doc(db, "arenahub", "data", "matches", id), dataObj);
-        });
         batch.set(configDocRef, { cupPublished: false }, { merge: true });
         await batch.commit();
 
@@ -1242,8 +1216,8 @@
 
       const arcTeamMap = Object.fromEntries(arcTeams.map(t => [t.id, t]));
       document.getElementById("archiveDetailMatches").innerHTML = arcMatches.length ? arcMatches.map(m => {
-        const h = m.homeId ? (arcTeamMap[m.homeId] || teamMap[m.homeId] || { name: "TBD", logo: defaultTeamLogo("?") }) : { name: "BYE / TBD", logo: defaultTeamLogo("-") };
-        const a = m.awayId ? (arcTeamMap[m.awayId] || teamMap[m.awayId] || { name: "TBD", logo: defaultTeamLogo("?") }) : { name: "BYE / TBD", logo: defaultTeamLogo("-") };
+        const h = m.homeId ? (arcTeamMap[m.homeId] || teamMap[m.homeId] || { name: "TBD", logo: defaultTeamLogo("TB") }) : { name: "TBD", logo: defaultTeamLogo("TB") };
+        const a = m.awayId ? (arcTeamMap[m.awayId] || teamMap[m.awayId] || { name: "TBD", logo: defaultTeamLogo("TB") }) : { name: "TBD", logo: defaultTeamLogo("TB") };
         const done = m.status === "finished";
         const homeWon = done && Number(m.homeScore) > Number(m.awayScore);
         const awayWon = done && Number(m.awayScore) > Number(m.homeScore);
@@ -1380,9 +1354,9 @@
                 </div>
                 <div class="space-y-4">
                   ${rMatches.map(m => {
-                    const h = m.homeId ? (teamMap[m.homeId] || { name: "TBD", logo: defaultTeamLogo("?") }) : { name: "BYE / TBD", logo: defaultTeamLogo("-") };
-                    const a = m.awayId ? (teamMap[m.awayId] || { name: "TBD", logo: defaultTeamLogo("?") }) : { name: "BYE / TBD", logo: defaultTeamLogo("-") };
-                    const done = m.status === "finished";
+                    const h = m.homeId ? (teamMap[m.homeId] || { name: "TBD", logo: defaultTeamLogo("TB") }) : { name: "TBD", logo: defaultTeamLogo("TB") };
+                    const a = m.awayId ? (teamMap[m.awayId] || { name: "TBD", logo: defaultTeamLogo("TB") }) : { name: "TBD", logo: defaultTeamLogo("TB") };
+                    const done = m.status === "finished" && m.homeScore !== null && m.awayScore !== null;
                     const homeWon = done && Number(m.homeScore) > Number(m.awayScore);
                     const awayWon = done && Number(m.awayScore) > Number(m.homeScore);
                     return `
@@ -1394,15 +1368,15 @@
                         <div class="space-y-1.5">
                           <div class="flex items-center justify-between bg-slate-900/90 px-2.5 py-2 rounded-xl">
                             <div class="flex items-center gap-2 min-w-0">
-                              <img src="${h.logo || defaultTeamLogo(h.name)}" class="w-7 h-7 rounded-lg object-cover shrink-0 ${homeWon ? 'winner-glow' : ''}" />
-                              <span class="text-xs font-bold truncate ${homeWon ? 'text-emerald-300' : 'text-white'}">${h.name}</span>
+                              <img src="${h.logo || defaultTeamLogo(h.name)}" alt="${h.name}" class="w-7 h-7 rounded-lg object-cover shrink-0 ${homeWon ? 'winner-glow' : ''}" />
+                              <span class="text-xs font-bold truncate ${homeWon ? 'text-emerald-300' : (m.homeId ? 'text-white' : 'text-slate-400')}">${h.name}</span>
                             </div>
                             <span class="font-extrabold text-sm ml-2 ${homeWon ? 'text-emerald-400' : 'text-white'}">${done ? m.homeScore : '-'}</span>
                           </div>
                           <div class="flex items-center justify-between bg-slate-900/90 px-2.5 py-2 rounded-xl">
                             <div class="flex items-center gap-2 min-w-0">
-                              <img src="${a.logo || defaultTeamLogo(a.name)}" class="w-7 h-7 rounded-lg object-cover shrink-0 ${awayWon ? 'winner-glow' : ''}" />
-                              <span class="text-xs font-bold truncate ${awayWon ? 'text-emerald-300' : 'text-white'}">${a.name}</span>
+                              <img src="${a.logo || defaultTeamLogo(a.name)}" alt="${a.name}" class="w-7 h-7 rounded-lg object-cover shrink-0 ${awayWon ? 'winner-glow' : ''}" />
+                              <span class="text-xs font-bold truncate ${awayWon ? 'text-emerald-300' : (m.awayId ? 'text-white' : 'text-slate-400')}">${a.name}</span>
                             </div>
                             <span class="font-extrabold text-sm ml-2 ${awayWon ? 'text-emerald-400' : 'text-white'}">${done ? m.awayScore : '-'}</span>
                           </div>
@@ -1425,9 +1399,9 @@
       });
 
       document.getElementById("publicMatchList").innerHTML = filteredMatches.length ? filteredMatches.map((m, i) => {
-        const h = m.homeId ? (teamMap[m.homeId] || { name: "TBD", logo: defaultTeamLogo("?") }) : { name: "BYE / TBD", logo: defaultTeamLogo("-") };
-        const a = m.awayId ? (teamMap[m.awayId] || { name: "TBD", logo: defaultTeamLogo("?") }) : { name: "BYE / TBD", logo: defaultTeamLogo("-") };
-        const done = m.status === "finished";
+        const h = m.homeId ? (teamMap[m.homeId] || { name: "TBD", logo: defaultTeamLogo("TB") }) : { name: "TBD", logo: defaultTeamLogo("TB") };
+        const a = m.awayId ? (teamMap[m.awayId] || { name: "TBD", logo: defaultTeamLogo("TB") }) : { name: "TBD", logo: defaultTeamLogo("TB") };
+        const done = m.status === "finished" && m.homeScore !== null && m.awayScore !== null;
         const homeWon = done && Number(m.homeScore) > Number(m.awayScore);
         const awayWon = done && Number(m.awayScore) > Number(m.homeScore);
         return `
@@ -1438,7 +1412,7 @@
             </div>
             <div class="flex items-center justify-between gap-2">
               <div class="flex-1 flex items-center gap-2.5 min-w-0">
-                <img src="${h.logo || defaultTeamLogo(h.name)}" class="w-9 h-9 rounded-xl object-cover shrink-0 transition-all ${homeWon ? 'winner-glow' : ''}" />
+                <img src="${h.logo || defaultTeamLogo(h.name)}" alt="${h.name}" class="w-9 h-9 rounded-xl object-cover shrink-0 transition-all ${homeWon ? 'winner-glow' : ''}" />
                 <span class="font-bold text-sm truncate ${homeWon ? 'text-emerald-300' : 'text-white'}">${h.name}</span>
               </div>
               <div class="px-3.5 py-1.5 rounded-xl bg-slate-900 border border-slate-800 font-extrabold text-base text-white shrink-0">
@@ -1446,7 +1420,7 @@
               </div>
               <div class="flex-1 flex items-center justify-end gap-2.5 text-right min-w-0">
                 <span class="font-bold text-sm truncate ${awayWon ? 'text-emerald-300' : 'text-white'}">${a.name}</span>
-                <img src="${a.logo || defaultTeamLogo(a.name)}" class="w-9 h-9 rounded-xl object-cover shrink-0 transition-all ${awayWon ? 'winner-glow' : ''}" />
+                <img src="${a.logo || defaultTeamLogo(a.name)}" alt="${a.name}" class="w-9 h-9 rounded-xl object-cover shrink-0 transition-all ${awayWon ? 'winner-glow' : ''}" />
               </div>
             </div>
           </div>
@@ -1455,7 +1429,7 @@
 
       document.getElementById("publicTeamGrid").innerHTML = standings.length ? standings.map(t => `
         <div class="glass-card rounded-2xl p-4 flex items-center gap-4">
-          <img src="${t.logo}" class="w-12 h-12 rounded-xl object-cover bg-slate-800" />
+          <img src="${t.logo}" alt="${t.name}" class="w-12 h-12 rounded-xl object-cover bg-slate-800" />
           <div class="flex-1">
             <h3 class="font-bold text-white">${t.name}</h3>
             <p class="text-xs text-slate-400 mt-0.5">Main ${t.played} • Menang ${t.win} • ${t.pts} Poin</p>
@@ -1490,7 +1464,7 @@
         document.getElementById("adminTeamList").innerHTML = state.teams.map(t => `
           <div class="glass-card rounded-xl p-4 flex items-center justify-between gap-3">
             <div class="flex items-center gap-3">
-              <img src="${t.logo || defaultTeamLogo(t.name)}" class="w-10 h-10 rounded-lg object-cover" />
+              <img src="${t.logo || defaultTeamLogo(t.name)}" alt="${t.name}" class="w-10 h-10 rounded-lg object-cover" />
               <span class="font-bold text-sm text-white">${t.name}</span>
             </div>
             <div class="flex gap-1.5">
@@ -1508,7 +1482,7 @@
             roundsMap.get(rIdx).push(m);
           });
 
-          const slotOptions = `<option value="">-- Kosong / BYE --</option>` + state.teams.map(t => `<option value="${t.id}">${t.name}</option>`).join("");
+          const slotOptions = `<option value="">-- Kosong / TBD --</option>` + state.teams.map(t => `<option value="${t.id}">${t.name}</option>`).join("");
           document.getElementById("adminCupEditorWrapper").innerHTML = [...roundsMap.entries()]
             .sort((a, b) => a[0] - b[0])
             .map(([rIdx, rMatches]) => `
@@ -1648,9 +1622,15 @@
       const as = Number(asRaw);
       const matchObj = state.matches.find(m => m.id === id);
 
-      if (state.config.format === "cup" && hs === as) {
-        showToast("Pada Sistem Gugur (Cup), skor tidak boleh seri.");
-        return;
+      if (state.config.format === "cup") {
+        if (!matchObj?.homeId || !matchObj?.awayId) {
+          showToast("Lengkapi kedua tim di slot pertandingan sebelum simpan skor Cup.");
+          return;
+        }
+        if (hs === as) {
+          showToast("Pada Sistem Gugur (Cup), skor tidak boleh seri.");
+          return;
+        }
       }
 
       await updateDoc(doc(db, "arenahub", "data", "matches", id), {
