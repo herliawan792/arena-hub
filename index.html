@@ -1209,21 +1209,33 @@
 
         while (pasanganBabak.length > 0) {
           const lagaBabak = [];
-          const nextSlots = [];
+          const byeSlots = [];
+          const winnerSlots = [];
 
           pasanganBabak.forEach(([a, b]) => {
             if (a && b) {
               const baru = { id: doc(matchesColRef).id, home: a, away: b };
               lagaBabak.push(baru);
-              nextSlots.push({ kind: "match", id: baru.id });
+              winnerSlots.push({ kind: "match", id: baru.id });
             } else if (a || b) {
               // bye: tim langsung maju ke babak berikutnya
-              nextSlots.push(a || b);
+              byeSlots.push(a || b);
             }
           });
 
           roundsPlan.push({ matches: lagaBabak });
-          if (nextSlots.length <= 1) break;
+          if (byeSlots.length + winnerSlots.length <= 1) break;
+
+          // Penting: tim yang mendapat bye diselingi dengan pemenang babak penyisihan,
+          // supaya di babak berikutnya mereka saling bertemu — bukan bye vs bye,
+          // dan bukan pemenang penyisihan yang justru saling berhadapan.
+          const nextSlots = [];
+          let iBye = 0;
+          let iWin = 0;
+          while (iBye < byeSlots.length || iWin < winnerSlots.length) {
+            if (iBye < byeSlots.length) nextSlots.push(byeSlots[iBye++]);
+            if (iWin < winnerSlots.length) nextSlots.push(winnerSlots[iWin++]);
+          }
 
           const berikutnya = [];
           for (let i = 0; i < nextSlots.length; i += 2) {
