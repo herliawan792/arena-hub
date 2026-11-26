@@ -346,29 +346,47 @@
 
     <!-- VIEW 1: KLASEMEN / BAGAN AKTIF -->
     <section id="publicTab-standings" class="public-tab-content space-y-6">
-      <div id="leagueStandingsWrapper" class="glass-card rounded-2xl overflow-hidden">
-        <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
-          <h2 class="font-bold text-white">Klasemen Sementara</h2>
-          <span class="text-xs text-slate-400">Urutan: Poin → Selisih Gol → Gol Masuk</span>
+      <div id="leagueStandingsWrapper" class="space-y-6">
+        <div id="leagueChampionBanner" class="glass-card rounded-2xl p-5 border border-amber-400/30 bg-gradient-to-r from-amber-500/10 via-slate-900/90 to-slate-900/90 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div class="flex items-center gap-4">
+            <div id="leagueWinnerLogoFrame" class="relative w-14 h-14 rounded-2xl bg-slate-800 flex items-center justify-center overflow-visible">
+              <div id="leagueWinnerCrownSlot"></div>
+              <img id="leagueWinnerTeamLogo" src="" alt="League Champion Logo" class="hidden w-full h-full rounded-2xl object-cover" />
+              <span id="leagueWinnerPlaceholderIcon" class="text-2xl">🏆</span>
+            </div>
+            <div>
+              <span class="text-[11px] font-bold uppercase tracking-wider text-amber-400">Juara Liga / League Champion</span>
+              <h3 id="leagueWinnerTeamName" class="text-xl font-extrabold text-white mt-0.5">Menunggu Penentuan Juara</h3>
+              <p id="leagueWinnerSubText" class="text-xs text-slate-400">Otomatis ditetapkan saat juara terkunci secara poin atau seluruh jadwal liga selesai.</p>
+            </div>
+          </div>
+          <span id="leagueWinnerStatusBadge" class="px-3 py-1 rounded-full text-xs font-bold bg-slate-800 text-slate-300">Belum Terkunci</span>
         </div>
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm text-left">
-            <thead class="bg-slate-900/80 text-xs uppercase text-slate-400 border-b border-slate-800">
-              <tr>
-                <th class="py-3.5 px-4 w-12 text-center">#</th>
-                <th class="py-3.5 px-4">Tim</th>
-                <th class="py-3.5 px-3 text-center">Main</th>
-                <th class="py-3.5 px-3 text-center">M</th>
-                <th class="py-3.5 px-3 text-center">S</th>
-                <th class="py-3.5 px-3 text-center">K</th>
-                <th class="py-3.5 px-3 text-center">GM</th>
-                <th class="py-3.5 px-3 text-center">GK</th>
-                <th class="py-3.5 px-3 text-center">SG</th>
-                <th class="py-3.5 px-4 text-center text-emerald-400">POIN</th>
-              </tr>
-            </thead>
-            <tbody id="standingsTableBody" class="divide-y divide-slate-800/70"></tbody>
-          </table>
+
+        <div class="glass-card rounded-2xl overflow-hidden">
+          <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+            <h2 class="font-bold text-white">Klasemen</h2>
+            <span class="text-xs text-slate-400">Urutan: Poin → Selisih Gol → Gol Masuk</span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left">
+              <thead class="bg-slate-900/80 text-xs uppercase text-slate-400 border-b border-slate-800">
+                <tr>
+                  <th class="py-3.5 px-4 w-12 text-center">#</th>
+                  <th class="py-3.5 px-4">Tim</th>
+                  <th class="py-3.5 px-3 text-center">Main</th>
+                  <th class="py-3.5 px-3 text-center">M</th>
+                  <th class="py-3.5 px-3 text-center">S</th>
+                  <th class="py-3.5 px-3 text-center">K</th>
+                  <th class="py-3.5 px-3 text-center">GM</th>
+                  <th class="py-3.5 px-3 text-center">GK</th>
+                  <th class="py-3.5 px-3 text-center">SG</th>
+                  <th class="py-3.5 px-4 text-center text-emerald-400">POIN</th>
+                </tr>
+              </thead>
+              <tbody id="standingsTableBody" class="divide-y divide-slate-800/70"></tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -720,11 +738,48 @@
       return null;
     }
 
-    function getLeagueLeaderId(standingsList) {
-      if (!standingsList || !standingsList.length) return null;
+    function evaluateLeagueChampion(standingsList, matchesList, cfg) {
+      if (!standingsList || standingsList.length < 2) return { champion: null, reason: null, isClinched: false };
       const top = standingsList[0];
-      if (!top || top.played <= 0) return null;
-      return top.id;
+      if (!top || top.played <= 0) return { champion: null, reason: null, isClinched: false };
+
+      const winPts = Number(cfg.winPts ?? 3);
+      const remainingByTeam = {};
+      standingsList.forEach(t => { remainingByTeam[t.id] = 0; });
+
+      let unfinishedCount = 0;
+      matchesList.forEach(m => {
+        if (m.status !== "finished") {
+          unfinishedCount++;
+          if (remainingByTeam[m.homeId] !== undefined) remainingByTeam[m.homeId]++;
+          if (remainingByTeam[m.awayId] !== undefined) remainingByTeam[m.awayId]++;
+        }
+      });
+
+      const allMatchesFinished = matchesList.length > 0 && unfinishedCount === 0;
+      if (allMatchesFinished) {
+        return {
+          champion: top,
+          reason: "Seluruh jadwal pertandingan liga telah selesai.",
+          isClinched: true
+        };
+      }
+
+      // Cek apakah ada tim lain yang secara matematis masih bisa mencapai/melewati poin tim peringkat #1
+      const canAnyOtherTeamCatchTop = standingsList.slice(1).some(other => {
+        const maxPossiblePts = Number(other.pts) + (remainingByTeam[other.id] || 0) * winPts;
+        return maxPossiblePts >= Number(top.pts);
+      });
+
+      if (!canAnyOtherTeamCatchTop) {
+        return {
+          champion: top,
+          reason: "Poin sudah tidak mungkin terkejar di sisa pertandingan.",
+          isClinched: true
+        };
+      }
+
+      return { champion: null, reason: null, isClinched: false };
     }
 
     function applyBranding(logoSrc) {
@@ -887,11 +942,10 @@
       state.isMutatingMatches = true;
       try {
         const standingsSnapshot = computeStandings(state.teams, state.matches, cfg);
+        const leagueEval = evaluateLeagueChampion(standingsSnapshot, state.matches, cfg);
         const winnerSnapshot = cfg.format === "cup"
           ? getCupWinnerFromMatches(state.matches, state.teams)
-          : (standingsSnapshot[0] && standingsSnapshot[0].played > 0
-              ? { id: standingsSnapshot[0].id, name: standingsSnapshot[0].name, logo: standingsSnapshot[0].logo || "" }
-              : null);
+          : (leagueEval.champion || (standingsSnapshot[0] && standingsSnapshot[0].played > 0 ? standingsSnapshot[0] : null));
 
         await addDoc(archivesColRef, {
           name: cfg.name,
@@ -1275,13 +1329,13 @@
         ? selectedArc.standings
         : computeStandings(arcTeams, arcMatches, selectedArc);
 
-      const arcCrownId = selectedArc.winner?.id || (selectedArc.format === "league" ? getLeagueLeaderId(arcStandings) : null);
+      const arcCrownId = selectedArc.winner?.id || null;
 
       const standingsWrap = document.getElementById("archiveDetailStandingsWrap");
       standingsWrap.classList.toggle("hidden", selectedArc.format === "cup");
       document.getElementById("archiveDetailStandingsBody").innerHTML = arcStandings.map((t, idx) => `
         <tr>
-          <td class="py-2 px-3 text-center font-bold ${idx === 0 ? 'text-amber-400' : (idx < 3 ? 'text-emerald-400' : 'text-slate-400')}">${idx + 1}</td>
+          <td class="py-2 px-3 text-center font-bold ${arcCrownId === t.id ? 'text-amber-400' : (idx < 3 ? 'text-emerald-400' : 'text-slate-400')}">${idx + 1}</td>
           <td class="py-2 px-3 flex items-center gap-2.5 font-semibold text-white">
             ${renderTeamLogoFrame({
               src: t.logo || defaultTeamLogo(t.name),
@@ -1380,26 +1434,57 @@
       document.getElementById("cupBracketWrapper").classList.toggle("hidden", !isCup);
 
       const standings = computeStandings(state.teams, state.matches, cfg);
-      const leagueLeaderId = !isCup ? getLeagueLeaderId(standings) : null;
+      const leagueEval = !isCup ? evaluateLeagueChampion(standings, state.matches, cfg) : { champion: null, reason: null, isClinched: false };
+      const leagueChampion = leagueEval.champion;
       const cupWinner = isCup ? getCupWinnerFromMatches(state.matches, state.teams) : null;
 
-      // Klasemen Liga: mahkota emas di pemuncak klasemen (#1)
+      // Banner Juara Liga (muncul otomatis jika sudah terkunci poin atau semua jadwal selesai)
+      const lgImg = document.getElementById("leagueWinnerTeamLogo");
+      const lgIcon = document.getElementById("leagueWinnerPlaceholderIcon");
+      const lgFrame = document.getElementById("leagueWinnerLogoFrame");
+      const lgCrownSlot = document.getElementById("leagueWinnerCrownSlot");
+      const lgNameEl = document.getElementById("leagueWinnerTeamName");
+      const lgSubEl = document.getElementById("leagueWinnerSubText");
+      const lgBadge = document.getElementById("leagueWinnerStatusBadge");
+
+      if (leagueChampion) {
+        lgImg.src = leagueChampion.logo || defaultTeamLogo(leagueChampion.name);
+        lgImg.classList.remove("hidden");
+        lgIcon.classList.add("hidden");
+        lgFrame.classList.add("winner-glow");
+        lgCrownSlot.innerHTML = crownSvgHtml("crown-lg");
+        lgNameEl.textContent = leagueChampion.name;
+        lgSubEl.textContent = `${leagueEval.reason} • ${leagueChampion.pts} Poin`;
+        lgBadge.textContent = "JUARA LIGA";
+        lgBadge.className = "px-3.5 py-1 rounded-full text-xs font-extrabold bg-amber-400 text-slate-950";
+      } else {
+        lgImg.classList.add("hidden");
+        lgIcon.classList.remove("hidden");
+        lgFrame.classList.remove("winner-glow");
+        lgCrownSlot.innerHTML = "";
+        lgNameEl.textContent = "Menunggu Penentuan Juara";
+        lgSubEl.textContent = "Otomatis ditetapkan saat juara terkunci secara poin atau seluruh jadwal liga selesai.";
+        lgBadge.textContent = "Belum Terkunci";
+        lgBadge.className = "px-3 py-1 rounded-full text-xs font-bold bg-slate-800 text-slate-300";
+      }
+
+      // Klasemen Liga: mahkota emas hanya jika juara liga sudah ditetapkan
       document.getElementById("standingsTableBody").innerHTML = standings.length ? standings.map((t, idx) => {
-        const isLeader = !isCup && leagueLeaderId === t.id;
+        const isChampion = !isCup && leagueChampion && leagueChampion.id === t.id;
         return `
-          <tr class="hover:bg-slate-800/40 transition ${isLeader ? 'bg-amber-500/5' : ''}">
-            <td class="py-3 px-4 text-center font-bold ${isLeader ? 'text-amber-400' : (idx < 3 ? 'text-emerald-400' : 'text-slate-400')}">${idx + 1}</td>
+          <tr class="hover:bg-slate-800/40 transition ${isChampion ? 'bg-amber-500/5' : ''}">
+            <td class="py-3 px-4 text-center font-bold ${isChampion ? 'text-amber-400' : (idx < 3 ? 'text-emerald-400' : 'text-slate-400')}">${idx + 1}</td>
             <td class="py-3 px-4 flex items-center gap-3 font-semibold text-white">
               ${renderTeamLogoFrame({
                 src: t.logo,
                 alt: t.name,
                 sizeClasses: "w-8 h-8 rounded-lg bg-slate-800",
-                crowned: isLeader,
+                crowned: isChampion,
                 glowing: false,
                 crownSize: "crown-sm"
               })}
-              <span class="${isLeader ? 'text-amber-300 font-extrabold' : ''}">${t.name}</span>
-              ${isLeader ? `<span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-400/15 text-amber-300 font-bold border border-amber-400/30">Pemuncak</span>` : ''}
+              <span class="${isChampion ? 'text-amber-300 font-extrabold' : ''}">${t.name}</span>
+              ${isChampion ? `<span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-400/15 text-amber-300 font-bold border border-amber-400/30">Juara Liga</span>` : ''}
             </td>
             <td class="py-3 px-3 text-center text-slate-300">${t.played}</td>
             <td class="py-3 px-3 text-center text-emerald-400 font-semibold">${t.win}</td>
@@ -1415,7 +1500,7 @@
 
       const teamMap = Object.fromEntries(state.teams.map(t => [t.id, t]));
 
-      // Tabel Winner Cup Publik: mahkota emas di juara final
+      // Tabel Winner Cup Publik
       const winnerImg = document.getElementById("winnerTeamLogo");
       const winnerIcon = document.getElementById("winnerPlaceholderIcon");
       const winnerFrame = document.getElementById("winnerLogoFrame");
@@ -1449,7 +1534,6 @@
       const showCupPublic = !!cfg.cupPublished || hasAnyResult;
       document.getElementById("cupPublicNotice").classList.toggle("hidden", showCupPublic || !state.matches.length);
 
-      // Bagan Cup: animasi nyala pada pemenang tiap match; mahkota hanya di juara laga Final
       const cupContainer = document.getElementById("cupBracketContainer");
       if (!showCupPublic || !state.matches.length) {
         cupContainer.innerHTML = state.matches.length
@@ -1524,7 +1608,7 @@
         `;
       }
 
-      // Jadwal & Hasil Pertandingan: TANPA golden crown, hanya animasi nyala di pemenang match; seri tidak menyala
+      // Jadwal & Hasil Pertandingan: tanpa golden crown, hanya animasi nyala pemenang match; seri tidak menyala
       const filter = document.getElementById("filterMatchStatus").value;
       const filteredMatches = sortedMatches.filter(m => {
         if (isCup && !showCupPublic) return false;
@@ -1573,9 +1657,9 @@
         `;
       }).join("") : `<p class="text-slate-500 text-sm">Tidak ada pertandingan yang ditampilkan.</p>`;
 
-      // Daftar Tim Peserta: mahkota emas hanya di pemuncak klasemen liga
+      // Daftar Tim Peserta: mahkota emas hanya jika juara liga sudah ditetapkan
       document.getElementById("publicTeamGrid").innerHTML = standings.length ? standings.map(t => {
-        const isCrowned = !isCup && leagueLeaderId === t.id;
+        const isCrowned = !isCup && leagueChampion && leagueChampion.id === t.id;
         return `
           <div class="glass-card rounded-2xl p-4 flex items-center gap-4 ${isCrowned ? 'border border-amber-400/30' : ''}">
             ${renderTeamLogoFrame({
